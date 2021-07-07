@@ -35,7 +35,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
 
   std::cout << "=============\t" << year << "\t=============\t" << etaBins_ << "\t=============\n";
 
-  TFile* f1 = TFile::Open("MuonStudies_PtHistos.root","READ");
+  TFile* f1 = TFile::Open("MuonResolution_PtHistos.root","READ");
 
   std::vector<std::string> etaBins = {
     "HPResB_G", "HPResO_G", "HPResE_G",
@@ -65,9 +65,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
       {
         2016,
         {
-          // {"ZToMuMu_NNPDF30_13TeV-powheg_M_50_120", 2.116e+03},
-          // {"ZToMuMu_NNPDF30_13TeV-powheg_M_120_200", 2.058e+01},
-          // {"ZToMuMu_NNPDF30_13TeV-powheg_M_200_400", 2.890e+00},
+          {"ZToMuMu_NNPDF30_13TeV-powheg_M_50_120", 2.116e+03},
+          {"ZToMuMu_NNPDF30_13TeV-powheg_M_120_200", 2.058e+01},
+          {"ZToMuMu_NNPDF30_13TeV-powheg_M_200_400", 2.890e+00},
           {"ZToMuMu_NNPDF30_13TeV-powheg_M_400_800", 2.515e-01},
           {"ZToMuMu_NNPDF30_13TeV-powheg_M_800_1400", 1.709e-02},
           {"ZToMuMu_NNPDF30_13TeV-powheg_M_1400_2300", 1.370e-03},
@@ -80,9 +80,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
       {
         2017,
         {
-          // { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_50_120", 2.116e+03},
-          // { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_120_200", 2.058e+01},
-          // { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_200_400", 2.890e+00},
+          { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_50_120", 2.116e+03},
+          { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_120_200", 2.058e+01},
+          { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_200_400", 2.890e+00},
           { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_400_800", 2.515e-01},
           { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_800_1400", 1.709e-02},
           { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_1400_2300", 1.370e-03},
@@ -95,9 +95,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
       {
         2018,
         {
-          // { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_50_120", 2.116e+03},
-          // { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_120_200", 2.058e+01},
-          // { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_200_400", 2.890e+00},
+          { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_50_120", 2.116e+03},
+          { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_120_200", 2.058e+01},
+          { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_200_400", 2.890e+00},
           { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_400_800", 2.515e-01},
           { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_800_1400", 1.709e-02},
           { "ZToMuMu_NNPDF31_TuneCP5_13TeV-powheg-pythia8_M_1400_2300", 1.370e-03},
@@ -109,22 +109,81 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
       }
     };
 
+
+
+  // HPs: x(GenPart_pt) y(Muon_pt) z(Muon_pt*Muon_tunepRelPt)
+
+  std::vector<std::string>  HPProjs = {"zy","zx","yx"};
+
+  TCanvas* cps = new TCanvas("cps","cps",5*500,2*500);
+  cps->Divide(5,2);
+
+  ////////////////////////////////////////////////////////
+
+  for(auto& s: HPProjs){
+    for(int i = 0; i < samples[year].size(); ++i){
+      cps->cd(i+1);
+      gPad->SetLeftMargin(0.15);
+      gPad->SetBottomMargin(0.15);
+      std::string hname = Form("%d/%s/HPs",year,samples[year][i].first.c_str()) ;
+      auto hps =
+        static_cast<TH2D*>(static_cast<TH3D*>(f1->Get(hname.c_str()))->Project3D(s.c_str())->Clone());
+      hps->SetTitle(samples[year][i].first.c_str());
+      hps->SetName(Form("hps_%s",hname.c_str()));
+      hps->Draw("COLZ TEXT");
+    }
+    cps->Print(Form("HPs_%s_%d.png",s.c_str(),year));
+  };
+
+  ////////////////////////////////////////////////////////
+
   // TH3D: P,Pt,PRes
   // "zx" z(PRes)-> Y; x(P) -> X;
   // "zy" z(PRes)-> Y; y(Pt) -> X;
   std::string projection = "zx";
-  std::string hpath = Form("%d/%s/%s",year,samples[year][0].first.c_str(),etaBins[etaBins_].c_str());
-  std::clog << hpath << "\n";
+
+  auto rhpath = [&](const int& i){
+    std::string hpath = Form("%d/%s/%s",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str());
+    std::cout << hpath << std::endl;
+    return hpath;
+  };
+
+  THStack* hs = new THStack("hs","hs");
+
   auto hp =
-    static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(hpath.c_str())))->Project3D(projection.c_str()));
+    static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(rhpath(0).c_str())))->Project3D(projection.c_str()));
   hp->SetName(Form("%d_%s_%s",year,samples[year][0].first.c_str(),etaBins[etaBins_].c_str()));
-  //hp->Scale(samples[year][0].second);
-  for (int i = 1; i < samples[year].size(); ++i) {
+  TH1D *hpp = static_cast<TH1D*>(hp->ProjectionY("_h",0)->Clone());
+  hpp->SetTitle(Form("%s\n%s",samples[year][0].first.c_str(),etaBins[etaBins_].c_str()));
+  cps->cd(1);
+  hpp->Scale(samples[year][0].second);
+  hpp->SetFillColor(kRed);
+  hs->Add(hpp,"HIST");
+  hpp->Draw();
+  hp->Scale(samples[year][0].second);
+
+  for(int i = 1; i < samples[year].size(); ++i){
     TH2D* h =
-      static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(Form("%d/%s/%s",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str()))))->Project3D(projection.c_str()));
-    //hp->Add(h,samples[year][i].second);
-    hp->Add(h);
+      static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(rhpath(i).c_str())))->Project3D(projection.c_str()));
+    hp->Add(h,samples[year][i].second);
+    TH1D* h1 = static_cast<TH1D*>(h->ProjectionY("_h",i)->Clone());
+    h1->SetTitle(Form("%s\n%s",samples[year][i].first.c_str(),etaBins[etaBins_].c_str()));
+    cps->cd(i+1);
+    h1->Scale(samples[year][i].second);
+    h1->SetFillColor(kRed+i);
+    hs->Add(h1,"HIST");
+    h1->Draw();
+    //hp->Add(h);
   }
+
+  cps->Print(Form("Samples_%s_%d.png",etaBins[etaBins_].c_str(),year));
+
+  cps->cd(0);
+  hs->Draw();
+  cps->Print(Form("StackAllPt_%s_%d.png",etaBins[etaBins_].c_str(),year));
+
+  ////////////////////////////////////////////////////////
+
 
   TCanvas* c1 = new TCanvas("c1","c1",5*500,3*500);
   c1->Divide(5,3);
@@ -150,7 +209,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
 
   TCanvas* c0 = new TCanvas("c0","c0",500,500);
 
-  for(uint i = 1; i <= 15; ++i){
+  for(uint i = 1; i <= hp->GetNbinsX() ; ++i){
     c1->cd(i);
 
     Double_t ptBinMin = hp->GetXaxis()->GetBinLowEdge(i);
