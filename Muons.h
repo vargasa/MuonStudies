@@ -3,6 +3,10 @@
 #include "Leptons.h"
 #endif
 
+#ifndef Muons_h
+#define Muons_h
+
+
 #include "IsData.h"
 
 using RVUI = TTreeReaderValue<UInt_t>&;
@@ -42,3 +46,4 @@ Muons::Muons(TTreeReaderValue<UInt_t>& n, RAF tunepRelPt, RAF pt, RAF eta,
 {
 
 }
+#endif

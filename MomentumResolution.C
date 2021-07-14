@@ -26,6 +26,8 @@ MomentumResolution::MomentumResolution(TTree *)
   HPtResE_G = 0;
 
   HPs = 0;
+
+  HMassZ = 0;
 }
 
 #ifndef CMSDATA
@@ -352,6 +354,8 @@ Bool_t MomentumResolution::Process(Long64_t entry) {
   PairZMass = -1.;
 
   ReadEntry(entry);
+
+  HCutFlow->Fill("genWeight",*genWeight);
 
   HCutFlow->FillS("NoCuts");
 

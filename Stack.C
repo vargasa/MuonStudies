@@ -143,33 +143,42 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
   std::string projection = "zx";
 
   auto rhpath = [&](const int& i){
-    std::string hpath = Form("%d/%s/%s",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str());
+    std::string hpath = Form("%d/%s/",year,samples[year][i].first.c_str());
     std::cout << hpath << std::endl;
     return hpath;
   };
 
-  THStack* hs = new THStack("hs","hs");
+  THStack* hs = new THStack("hs",Form("%s;P Resolution;Event Count",etaBins[etaBins_].c_str()));
+
+  TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
+  Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
+  std::cout << sumGenWeight << "\n"; 
 
   auto hp =
-    static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(rhpath(0).c_str())))->Project3D(projection.c_str()));
+    static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(Form("%s/%s",rhpath(0).c_str(),etaBins[etaBins_].c_str()))))->Project3D(projection.c_str()));
+
+
   hp->SetName(Form("%d_%s_%s",year,samples[year][0].first.c_str(),etaBins[etaBins_].c_str()));
   TH1D *hpp = static_cast<TH1D*>(hp->ProjectionY("_h",0)->Clone());
   hpp->SetTitle(Form("%s\n%s",samples[year][0].first.c_str(),etaBins[etaBins_].c_str()));
   cps->cd(1);
-  hpp->Scale(samples[year][0].second);
+  hpp->Scale(samples[year][0].second/sumGenWeight);
   hpp->SetFillColor(kRed);
   hs->Add(hpp,"HIST");
   hpp->Draw();
-  hp->Scale(samples[year][0].second);
+  hp->Scale(samples[year][0].second/sumGenWeight);
 
   for(int i = 1; i < samples[year].size(); ++i){
+    hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(i).c_str())));
+    sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
+      std::cout << sumGenWeight << "\n"; 
     TH2D* h =
-      static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(rhpath(i).c_str())))->Project3D(projection.c_str()));
+      static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(Form("%s/%s",rhpath(i).c_str(),etaBins[etaBins_].c_str()))))->Project3D(projection.c_str()));
     hp->Add(h,samples[year][i].second);
     TH1D* h1 = static_cast<TH1D*>(h->ProjectionY("_h",i)->Clone());
     h1->SetTitle(Form("%s\n%s",samples[year][i].first.c_str(),etaBins[etaBins_].c_str()));
     cps->cd(i+1);
-    h1->Scale(samples[year][i].second);
+    h1->Scale(samples[year][i].second/sumGenWeight);
     h1->SetFillColor(kRed+i);
     hs->Add(h1,"HIST");
     h1->Draw();
@@ -178,6 +187,8 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
 
   cps->Print(Form("Samples_%s_%d.png",etaBins[etaBins_].c_str(),year));
 
+  cps->Clear();
+  cps->SetWindowSize(500,500);
   cps->cd(0);
   hs->Draw();
   cps->Print(Form("StackAllPt_%s_%d.png",etaBins[etaBins_].c_str(),year));
