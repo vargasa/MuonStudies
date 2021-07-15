@@ -120,17 +120,15 @@ class MomentumResolution : public EventSelection {
   Bool_t PairMu;
 
   TH3F* HPResB_T;
-  TH3F* HPResO_T; // O+E bins Merged
+  TH3F* HPResE_T;
 
   TH3F* HPtResB_T;
-  TH3F* HPtResO_T; // O+E bins Merged
+  TH3F* HPtResE_T;
 
   TH3F* HPResB_G;
-  TH3F* HPResO_G;
   TH3F* HPResE_G;
 
   TH3F* HPtResB_G;
-  TH3F* HPtResO_G;
   TH3F* HPtResE_G;
 
   TH3F* HPs;

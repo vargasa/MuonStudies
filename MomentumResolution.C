@@ -14,16 +14,18 @@ MomentumResolution::MomentumResolution(TTree *)
 
   HCutFlow = 0;
   HPResB_T = 0;
-  HPResO_T = 0;
   HPResB_G = 0;
-  HPResO_G = 0;
+
+  HPResE_T = 0;
   HPResE_G = 0;
 
   HPtResB_T = 0;
-  HPtResO_T = 0;
-  HPtResB_G = 0;
-  HPtResO_G = 0;
   HPtResE_G = 0;
+
+  HPtResB_G = 0;
+  HPtResE_G = 0;
+
+  HPtResE_T= 0;
 
   HPs = 0;
 
@@ -122,38 +124,32 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
   fOutput->Add(HPs);
 
   HPResB_T = new TH3F("HPResB_T","Momentum Resolution;P;Pt;PRes",15,PBins,15,PBins,197,PResBins);
-  HPResO_T = static_cast<TH3F*>(HPResB_T->Clone());
-  HPResO_T->SetName("HPResO_T");
+  HPResE_T = static_cast<TH3F*>(HPResB_T->Clone());
+  HPResE_T->SetName("HPResE_T");
 
   HPtResB_T = static_cast<TH3F*>(HPResB_T->Clone());
   HPtResB_T->SetName("HPtResB_T");
-  HPtResO_T = static_cast<TH3F*>(HPtResB_T->Clone());
-  HPtResO_T->SetName("HPtResO_T");
+  HPtResE_T = static_cast<TH3F*>(HPtResB_T->Clone());
+  HPtResE_T->SetName("HPtResE_T");
 
   HPResB_G = static_cast<TH3F*>(HPResB_T->Clone());
   HPResB_G->SetName("HPResB_G");
-  HPResO_G = static_cast<TH3F*>(HPResB_T->Clone());
-  HPResO_G->SetName("HPResO_G");
   HPResE_G = static_cast<TH3F*>(HPResB_T->Clone());
   HPResE_G->SetName("HPResE_G");
 
   HPtResB_G = static_cast<TH3F*>(HPResB_T->Clone());
   HPtResB_G->SetName("HPtResB_G");
-  HPtResO_G = static_cast<TH3F*>(HPResB_T->Clone());
-  HPtResO_G->SetName("HPtResO_G");
   HPtResE_G = static_cast<TH3F*>(HPResB_T->Clone());
   HPtResE_G->SetName("HPtResE_G");
 
   fOutput->Add(HPResB_T);
-  fOutput->Add(HPResO_T);
+  fOutput->Add(HPResE_T);
   fOutput->Add(HPResB_G);
-  fOutput->Add(HPResO_G);
   fOutput->Add(HPResE_G);
 
   fOutput->Add(HPtResB_T);
-  fOutput->Add(HPtResO_T);
+  fOutput->Add(HPtResE_T);
   fOutput->Add(HPtResB_G);
-  fOutput->Add(HPtResO_G);
   fOutput->Add(HPtResE_G);
 
   HMassZ = new TH1F("HMassZ","Mass(Z);DiMuon Mass;Event Count", 100,50,10000);
@@ -419,39 +415,35 @@ Bool_t MomentumResolution::Process(Long64_t entry) {
    HCutFlow->FillS("ZCandidate");
 
    auto FillHistos = [&](TH3F* HPB,
-                         TH3F* HPO,
                          TH3F* HPE,
                          PtEtaPhiMVector& l,
                          Double_t pRes_) {
 
      std::pair<float,float> MuonB = { 0., 1.2};
-     std::pair<float,float> MuonO = { 1.2, 2.1};
-     std::pair<float,float> MuonC = { 2.1, 2.4};
+     std::pair<float,float> MuonE = { 1.2, 2.4};
 
      if( abs(l.Eta()) <= MuonB.second ) {
        HPB->Fill(l.P(), l.Pt(), pRes_,*genWeight);
-     } else if (l.Eta() > MuonO.first and l.Eta() <= MuonO.second) {
-       HPO->Fill(l.P(), l.Pt(), pRes_,*genWeight);
-     } else if (l.Eta() > MuonC.first and l.Eta() <= MuonC.second){
+     } else if (l.Eta() > MuonE.first and l.Eta() <= MuonE.second) {
        HPE->Fill(l.P(), l.Pt(), pRes_,*genWeight);
      }
 
    };
 
    if( Muon_highPtId[l1] == 1 ){
-     FillHistos(HPResB_T, HPResO_T, HPResO_T, lep1, GetPResidual(Mus,l1));
-     FillHistos(HPtResB_T, HPtResO_T, HPtResO_T, lep1, GetPtResidual(Mus,l1));
+     FillHistos(HPResB_T, HPResE_T, lep1, GetPResidual(Mus,l1));
+     FillHistos(HPtResB_T, HPtResE_T, lep1, GetPtResidual(Mus,l1));
    } else {
-     FillHistos(HPResB_G, HPResO_G, HPResE_G, lep1, GetPResidual(Mus,l1));
-     FillHistos(HPtResB_G, HPtResO_G, HPtResE_G, lep1,GetPtResidual(Mus,l1));
+     FillHistos(HPResB_G, HPResE_G, lep1, GetPResidual(Mus,l1));
+     FillHistos(HPtResB_G, HPtResE_G, lep1,GetPtResidual(Mus,l1));
    }
 
    if( Muon_highPtId[l2] == 1){
-     FillHistos(HPResB_T, HPResO_T, HPResO_T, lep2, GetPResidual(Mus,l2));
-     FillHistos(HPtResB_T, HPtResO_T, HPtResO_T, lep2, GetPtResidual(Mus,l2));
+     FillHistos(HPResB_T, HPResE_T, lep2, GetPResidual(Mus,l2));
+     FillHistos(HPtResB_T, HPtResE_T, lep2, GetPtResidual(Mus,l2));
    } else {
-     FillHistos(HPResB_G, HPResO_G, HPResE_G, lep2, GetPResidual(Mus,l2));
-     FillHistos(HPtResB_G, HPtResO_G, HPtResE_G, lep2, GetPtResidual(Mus,l2));
+     FillHistos(HPResB_G, HPResE_G, lep2, GetPResidual(Mus,l2));
+     FillHistos(HPtResB_G, HPtResE_G, lep2, GetPtResidual(Mus,l2));
    }
 
    HPs->Fill(GenPart_pt[Muon_genPartIdx[l1]],Muon_pt[l1],Muon_pt[l1]*Muon_tunepRelPt[l1]);
