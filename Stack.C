@@ -38,26 +38,29 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
   TFile* f1 = TFile::Open("MuonResolution_PtHistos.root","READ");
 
   std::vector<std::string> etaBins = {
-    "HPResB_G", "HPResO_G", "HPResE_G",
-    "HPResB_T", "HPResO_T",
+    "HPResB_G", "HPResE_G",
+    "HPResB_T", "HPResE_T",
+  };
+
+  std::unordered_map<int, float> luminosity = {
+    {2016, 35.92},
+    {2017, 41.43},
+    {2018, 59.74}
   };
 
   // std::vector<std::string> etaBins = {
-  //   "HPtResB_G", "HPtResO_G", "HPtResE_G",
-  //   "HPtResB_T", "HPtResO_T",
+  //   "HPtResB_G", "HPtResE_G",
+  //   "HPtResB_T", "HPtResE_T",
   // };
 
-
   std::pair<float,float> MuonB = { 0., 1.2 };
-  std::pair<float,float> MuonO = { 1.2, 2.1 };
-  std::pair<float,float> MuonE = { 2.1, 2.4 };
+  std::pair<float,float> MuonE = { 1.2, 2.4 };
 
   std::vector<std::string> titleEtaBins = {
     Form("%.1f <=|#eta|<= %.1f [globalHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonB.first, MuonB.second),  //B_G
-    Form("%.1f <|#eta|<= %.1f [globalHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonO.first, MuonO.second),   //O_G
     Form("%.1f <|#eta|<= %.1f [globalHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonE.first, MuonE.second),   //E_G
     Form("%.1f <=|#eta|<= %.1f [trackerHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonB.first, MuonB.second), //B_T
-    Form("%.1f <|#eta|<= %.1f [trackerHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonO.first, MuonE.second),  //O_T
+    Form("%.1f <|#eta|<= %.1f [trackerHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonE.first, MuonE.second),  //O_T
   };
 
   std::unordered_map<int,std::vector<std::pair<std::string,Double_t>>> samples =
@@ -109,330 +112,136 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
       }
     };
 
-
-
-  // HPs: x(GenPart_pt) y(Muon_pt) z(Muon_pt*Muon_tunepRelPt)
-
-  std::vector<std::string>  HPProjs = {"zy","zx","yx"};
-
-  TCanvas* cps = new TCanvas("cps","cps",5*500,2*500);
-  cps->Divide(5,2);
-
-  ////////////////////////////////////////////////////////
-
-  for(auto& s: HPProjs){
-    for(int i = 0; i < samples[year].size(); ++i){
-      cps->cd(i+1);
-      gPad->SetLeftMargin(0.15);
-      gPad->SetBottomMargin(0.15);
-      std::string hname = Form("%d/%s/HPs",year,samples[year][i].first.c_str()) ;
-      auto hps =
-        static_cast<TH2D*>(static_cast<TH3D*>(f1->Get(hname.c_str()))->Project3D(s.c_str())->Clone());
-      hps->SetTitle(samples[year][i].first.c_str());
-      hps->SetName(Form("hps_%s",hname.c_str()));
-      hps->Draw("COLZ TEXT");
-    }
-    cps->Print(Form("HPs_%s_%d.png",s.c_str(),year));
-  };
-
-  ////////////////////////////////////////////////////////
-
-  // TH3D: P,Pt,PRes
-  // "zx" z(PRes)-> Y; x(P) -> X;
-  // "zy" z(PRes)-> Y; y(Pt) -> X;
-  std::string projection = "zx";
-
   auto rhpath = [&](const int& i){
     std::string hpath = Form("%d/%s/",year,samples[year][i].first.c_str());
     std::cout << hpath << std::endl;
     return hpath;
   };
 
-  THStack* hs = new THStack("hs",Form("%s;P Resolution;Event Count",etaBins[etaBins_].c_str()));
 
-  TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
-  Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
-  std::cout << sumGenWeight << "\n"; 
+  TCanvas* cps = new TCanvas("cps","cps",5*500,3*500);
+  cps->Divide(5,3);
 
-  auto hp =
-    static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(Form("%s/%s",rhpath(0).c_str(),etaBins[etaBins_].c_str()))))->Project3D(projection.c_str()));
-
-
-  hp->SetName(Form("%d_%s_%s",year,samples[year][0].first.c_str(),etaBins[etaBins_].c_str()));
-  TH1D *hpp = static_cast<TH1D*>(hp->ProjectionY("_h",0)->Clone());
-  hpp->SetTitle(Form("%s\n%s",samples[year][0].first.c_str(),etaBins[etaBins_].c_str()));
-  cps->cd(1);
-  hpp->Scale(samples[year][0].second/sumGenWeight);
-  hpp->SetFillColor(kRed);
-  hs->Add(hpp,"HIST");
-  hpp->Draw();
-  hp->Scale(samples[year][0].second/sumGenWeight);
-
-  for(int i = 1; i < samples[year].size(); ++i){
-    hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(i).c_str())));
-    sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
-      std::cout << sumGenWeight << "\n"; 
-    TH2D* h =
-      static_cast<TH2D*>((static_cast<TH3D*>(f1->Get(Form("%s/%s",rhpath(i).c_str(),etaBins[etaBins_].c_str()))))->Project3D(projection.c_str()));
-    hp->Add(h,samples[year][i].second);
-    TH1D* h1 = static_cast<TH1D*>(h->ProjectionY("_h",i)->Clone());
-    h1->SetTitle(Form("%s\n%s",samples[year][i].first.c_str(),etaBins[etaBins_].c_str()));
-    cps->cd(i+1);
-    h1->Scale(samples[year][i].second/sumGenWeight);
-    h1->SetFillColor(kRed+i);
-    hs->Add(h1,"HIST");
-    h1->Draw();
-    //hp->Add(h);
-  }
-
-  cps->Print(Form("Samples_%s_%d.png",etaBins[etaBins_].c_str(),year));
-
-  cps->Clear();
-  cps->SetWindowSize(500,500);
-  cps->cd(0);
-  hs->Draw();
-  cps->Print(Form("StackAllPt_%s_%d.png",etaBins[etaBins_].c_str(),year));
-
-  ////////////////////////////////////////////////////////
-
-
-  TCanvas* c1 = new TCanvas("c1","c1",5*500,3*500);
-  c1->Divide(5,3);
-  TCanvas* cPull = new TCanvas("cPull","cPull",5*500,3*500);
-  cPull->Divide(5,3);
-  TCanvas* cResidual = new TCanvas("cResidual","cResidual",5*500,3*500);
-  cResidual->Divide(5,3);
+  TCanvas* cpt = new TCanvas("cpt","cpt",5*500,3*500);
+  cpt->Divide(5,3);
 
   Int_t nParams = 7;
 
-  gStyle->SetOptFit(1111);
+  Double_t xmin = -0.35;
+  Double_t xmax = 0.35;
 
-  std::vector<Double_t> sigmas;
-  std::vector<Double_t> sigmaErrors;
-  std::vector<Double_t> ptBins;
 
-  std::vector<Double_t> means;
-  std::vector<Double_t> meanErrors;
 
-  Double_t prevSigma = 0.;
 
-  Double_t YLimit = 0.;
+  std::vector<Double_t> sigmas_;
+  std::vector<Double_t> ptBins_;
+  std::vector<Double_t> sigmaErrors_;
 
-  TCanvas* c0 = new TCanvas("c0","c0",500,500);
+  Double_t prevSigma_ = -1.;
 
-  for(uint i = 1; i <= hp->GetNbinsX() ; ++i){
-    c1->cd(i);
-
-    Double_t ptBinMin = hp->GetXaxis()->GetBinLowEdge(i);
-    Double_t ptBinMax = hp->GetXaxis()->GetBinLowEdge(i+1);
-
-    ptBins.emplace_back(hp->GetXaxis()->GetBinLowEdge(i));
-
-    TH1D* h = hp->ProjectionY("_h",i);
-    h->SetName(Form("h_%d_%s_%d",year,etaBins[etaBins_].c_str(),i));
-    h->Sumw2();
-
-    if (i == 1)
-      YLimit = h->GetMaximum() * 1.1;
-
-    Double_t xmin = -0.5;// -2.*h->GetRMS();
-    Double_t xmax = 0.5;//1.3*h->GetRMS();
-
-    if (etaBins_ >= 3) {
-      xmin = -0.35;
-      xmax = 0.5;
+  for(int j = 1; j <= 12 /*P Bins*/; ++j) {
+    Double_t yMax = 0.;
+    THStack* hs = new THStack("hs",Form("%s;P Resolution;Event Count",etaBins[etaBins_].c_str()));
+    THStack* hs_ = static_cast<THStack*>(hs->Clone());
+    hs->SetName(Form("hs_%s_%d",etaBins[etaBins_].c_str(),j));
+    hs_->SetName(Form("hs__%s_%d",etaBins[etaBins_].c_str(),j));
+    Double_t ptBinMin = 0;
+    Double_t ptBinMax = 0.;
+    for(int i = 0; i < samples[year].size(); ++i){
+      std::cout << Form("%d/%s/%s\n",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str()) ;
+      auto h3 =
+        static_cast<TH3D*>(f1->Get(Form("%d/%s/%s",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str())));
+      auto h2 =
+        static_cast<TH2D*>(h3->Project3D("zx"));
+      cps->cd(j);
+      auto h1 =
+        static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][i].first.c_str(),j),j));
+      TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
+      Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
+      ptBinMin = h2->GetXaxis()->GetBinLowEdge(j);
+      ptBinMax = h2->GetXaxis()->GetBinLowEdge(j+1);
+      hs->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
+      hs_->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
+      h1->Scale(luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
+      h1->SetTitle(Form("%s;P Resolution;EventCount * #sigma",samples[year][i].first.c_str()));
+      //h1->GetYaxis()->SetRangeUser(0.,yMax);
+      h1->SetFillColor(i+1);
+      cps->cd(i+1);
+      h1->Draw("HIST");
+      hs->Add(h1,"F");
+      if( h1->GetEntries() > 1e2){
+        hs_->Add(h1,"F");
+      }
     }
+    ptBins_.emplace_back(ptBinMin);
+
+    cps->cd(11);
+    hs->Draw("HIST");
+    cps->cd(12);
+    hs_->Draw("HIST");
+    TH1* h = static_cast<TH1D*>(hs_->GetStack()->Last());
+    h->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
+    if (ptBinMin == 72.) {
+      xmin = -0.2;
+      xmax = 0.2;
+    } else {
+      xmin = -0.35;
+      xmax = 0.35;
+    }
+
 
     TF1 *fxDCB = new TF1(Form("fxDCB_%d_%s",year,etaBins[etaBins_].c_str()),
                          DSCB, xmin, xmax, nParams);
     fxDCB->SetParNames ("#alpha_{low}","#alpha_{high}","n_{low}", "n_{high}", "#mu", "#sigma", "N");
-
-    std::string fitOption = "";
-    if(etaBins_ < 3){
-      Double_t lowMean = -0.2;
-      Double_t highMean = h->GetMean() + 0.1;
-      Double_t lowN = h->GetMaximum()*0.8;
-      Double_t highN = h->GetMaximum()*1.01;
-      fxDCB->SetParameters(1., 1., 10, 10, h->GetMean(), h->GetRMS(), h->GetMaximum());
-      //fxDCB->SetParLimits(4,lowMean,highMean);
-      //fxDCB->SetParLimits(5,0,0.5);
-      //fxDCB->SetParLimits(6,lowN,highN);
-      fitOption = "M R";
-    } else {
-      Double_t lowN = h->GetMaximum()*0.75;
-      Double_t highN = h->GetMaximum();
-      fxDCB->SetParameters(1., 1., 10, 10, h->GetMean(), h->GetRMS() , h->GetMaximum());
-      //fxDCB->SetParLimits(5, prevSigma > 0.? prevSigma : 0.04, 100.);
-      //fxDCB->SetParLimits(6,lowN,highN);
-      if ( highN < 10. ) {
-        fitOption = "M R WL";
-      } else {
-        fitOption = "M R";
-      }
-    }
-
-    for(int i = 0; i < 8; ++i){
+    fxDCB->SetParameters(1., 1., 10, 10, h->GetMean(), h->GetRMS(), h->GetMaximum());
+    std::string fitOption = "MR W L";
+    if ( j != 1 )
+      fxDCB->SetParLimits(5,prevSigma_,0.2); // Require higher sigma for higher Pt
+    for(int i = 0; i < 20; ++i)
       h->Fit(fxDCB,fitOption.c_str(),"",xmin,xmax);
-    }
+    prevSigma_ = fxDCB->GetParameter(5);
+    sigmas_.emplace_back(fxDCB->GetParameter(5));
+    sigmaErrors_.emplace_back(fxDCB->GetParError(5));
+    fxDCB->Draw("SAME");
 
-
-    RooRealVar pres("pres","P Residual",xmin,xmax);
-    pres.setBins(10000);
-    RooAbsPdf* dcb = RooFit::bindPdf(fxDCB,pres);
-    RooDataHist dh1("dh1","dh1",pres,h);
-    RooPlot* frame = pres.frame(Title(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year)));
-
-
-    dcb->fitTo(dh1,SumW2Error(true));
-    dh1.plotOn(frame);
-    dcb->plotOn(frame);
-
-    RooHist* hpull = frame->pullHist();
-    hpull->SetName(Form("hPull_%.0f_%.0f_%s_%d",ptBinMin,ptBinMax,etaBins[etaBins_].c_str(),year));
-    RooPlot* framePull = pres.frame(Title(Form("Pull %s",titleEtaBins[etaBins_].c_str())));
-    framePull->SetName(Form("fPull_%.0f_%.0f_%s_%d",ptBinMin,ptBinMax,etaBins[etaBins_].c_str(),year));
-    framePull->addPlotable(hpull,"P");
-    RooHist* hresid = frame->residHist();
-    RooPlot* frameResid= pres.frame(Title(Form("Residual [%.1f:%.1f] GeV %s [%d]",ptBinMin,ptBinMax,etaBins[etaBins_].c_str(),year)));
-    frameResid->addPlotable(hresid,"P");
-
-    prevSigma = fxDCB->GetParameter(5);
-
-    h->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,etaBins[etaBins_].c_str(),year));
-
-    means.emplace_back(fxDCB->GetParameter(4));
-    sigmas.emplace_back(fxDCB->GetParameter(5));
-
-    meanErrors.emplace_back(fxDCB->GetParError(4));
-    sigmaErrors.emplace_back(fxDCB->GetParError(5));
-
-    std::string gaussian = Form("%.8f*exp(-0.5*pow((x-(%.8f))/%.8f,2.))",
-                                fxDCB->GetParameter(6),
-                                fxDCB->GetParameter(4),
-                                fxDCB->GetParameter(5));
-
-
-    std::cout << gaussian << std::endl;
-
-    std::string exp1 = Form("%.8f*exp(-0.5*%.8f*%.8f)*pow((%.8f/%.8f)*((%.8f/%.8f) - (%.8f) - (x-(%.8f))/%.8f),-(%.8f))",
-                            fxDCB->GetParameter(6), // N
-                            fxDCB->GetParameter(0), fxDCB->GetParameter(0), // alpha_L*alpha_L
-                            fxDCB->GetParameter(0), fxDCB->GetParameter(2), // alphaL / n_L
-                            fxDCB->GetParameter(2), fxDCB->GetParameter(0), // n_L / alpha_L
-                            fxDCB->GetParameter(0), // alpha_L
-                            fxDCB->GetParameter(4), fxDCB->GetParameter(5), // (x-mean)/sigma
-                            fxDCB->GetParameter(2)  // n_L
-                            );
-
-    std::cout << exp1 << std::endl;
-
-    std::string exp2 = Form("%.8f*exp(-0.5*%.8f*%.8f)*pow((%.8f/%.8f)*((%.8f/%.8f) - (%.8f) + (x-(%.8f))/%.8f),-(%.8f))",
-                            fxDCB->GetParameter(6), // N
-                            fxDCB->GetParameter(1), fxDCB->GetParameter(1), // alpha_H*alpha_H
-                            fxDCB->GetParameter(1), fxDCB->GetParameter(3), // alpha_H / n_H
-                            fxDCB->GetParameter(3), fxDCB->GetParameter(1), // n_H / alpha_H
-                            fxDCB->GetParameter(1), // alpha_H
-                            fxDCB->GetParameter(4), fxDCB->GetParameter(5), // (x-mean)/sigma
-                            fxDCB->GetParameter(3)  // n_H
-                            );
-
-
-
-    //std::cout << exp2 << std::endl;
-
-    TF1 *gausFx = new TF1(Form("gausFx_%d_%s",year,etaBins[etaBins_].c_str()),
-                          gaussian.c_str(), xmin, xmax);
-    TF1 *exp1Fx = new TF1(Form("exp1Fx_%d_%s",year,etaBins[etaBins_].c_str()),
-                          exp1.c_str(), xmin, xmax);
-    TF1 *exp2Fx = new TF1(Form("exp2Fx_%d_%s",year,etaBins[etaBins_].c_str()),
-                          exp2.c_str(), 5e-2, xmax);
-
-    if(etaBins_  < 3) {
-      h->GetXaxis()->SetRangeUser(-0.2,0.2);
-    } else {
-      h->GetXaxis()->SetRangeUser(-0.35,0.5);
-    }
-    //h->Draw();
-    gPad->SetLeftMargin(0.15);
-    gPad->SetBottomMargin(0.15);
-    frame->Draw();
-    frame->GetYaxis()->SetRangeUser(0.,h->GetMaximum()*1.1);
-    //fxDCB->Draw("SAME");
-    gausFx->SetLineColor(kBlue);
-    gausFx->SetLineStyle(7);
-    //gausFx->Draw("SAME");
-    exp1Fx->SetLineColor(kBlack);
-    exp1Fx->SetLineStyle(7);
-    //exp1Fx->Draw("SAME");
-    //exp2Fx->SetLineColor(kRed);
-    exp2Fx->SetLineStyle(7);
-    ///exp2Fx->Draw("SAME");
-    cPull->cd(i);
-    framePull->Draw();
-    cResidual->cd(i);
-    frameResid->Draw();
-    //delete gausFx;
-    //delete fxDCB;
-    //delete exp1Fx;
-    //delete exp2Fx;
+    cpt->cd(j);
+    //hs_->Draw("HIST");
+    h->Draw();
+    h->GetXaxis()->SetRangeUser(-0.4,0.4);
+    fxDCB->Draw("SAME");
+    cps->Print(Form("%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
   }
 
-  c1->Print(Form("%d_%s_.png",year,etaBins[etaBins_].c_str()));
-  cPull->Print(Form("%d_%s_Pull.png",year,etaBins[etaBins_].c_str()));
-  //cResidual->Print(Form("%d_%s_Residual.png",year,etaBins[etaBins_].c_str()));
+  ptBins_.emplace_back(3600); // Last limit
 
-  ptBins.emplace_back(hp->GetXaxis()->GetBinLowEdge(12));
+  const int nPoints_ = 12;
+  TGraphAsymmErrors* g_ = new TGraphAsymmErrors(nPoints_);
 
-  const int nPoints = 11;
-
-  std::vector<TGraphAsymmErrors*> plots;
-
-  TGraphAsymmErrors* g = new TGraphAsymmErrors(nPoints);
-  TGraphAsymmErrors* gMeans = new TGraphAsymmErrors(nPoints);
-
-  for(int i = 0; i < nPoints; ++i){
-    Double_t mid = (ptBins[i]+ptBins[i+1])/2.;
-    Double_t dx = mid - ptBins[i];
-    g->SetPoint(i,mid,sigmas[i]);
-    gMeans->SetPoint(i,mid,means[i]);
-    g->SetPointError(i,dx,dx,sigmaErrors[i],sigmaErrors[i]);
-    gMeans->SetPointError(i,dx,dx,meanErrors[i],meanErrors[i]);
+  for(int i = 0; i < nPoints_; ++i){
+    Double_t mid = (ptBins_[i]+ptBins_[i+1])/2.;
+    Double_t dx = mid - ptBins_[i];
+    std::cout << mid << std::endl;
+    g_->SetPoint(i,mid,sigmas_[i]);
+    //g_->SetPointError(i,dx,dx,sigmaErrors_[i],sigmaErrors_[i]);
+    g_->SetPointError(i,dx,dx,0,0);
+    std::cout << sigmas_[i] << std::endl;
   }
 
-  c1->Clear();
-  c1->SetGrid();
-  c1->GetFrame()->SetFillColor(21);
-  c1->GetFrame()->SetBorderSize(12);
-  g->SetMarkerColor(4);
-  g->SetMarkerStyle(21);
-  g->SetTitle(Form("%s [%d]; P; Resolution",etaBins[etaBins_].c_str(),year));
-  g->Draw("AP");
-  g->GetXaxis()->SetRangeUser(0,3100);
-  if(etaBins_ <3){
-    g->GetYaxis()->SetRangeUser(0,0.2);
-  } else {
-    g->GetYaxis()->SetRangeUser(0,0.25);
-  }
-  c1->Print(Form("%d_%d_PResolution.png",year,etaBins_));
+  TCanvas* c1_ = new TCanvas("c1","c1",500,500);
+  c1_->cd();
+  g_->Draw();
+  c1_->Print(Form("%d_%s.png",year,etaBins[etaBins_].c_str()));
+  cpt->Print(Form("%d_%s_.png",year,etaBins[etaBins_].c_str()));
 
+  delete c1_;
 
-  c1->Clear();
-  gMeans->SetMarkerColor(4);
-  gMeans->SetMarkerStyle(21);
-  gMeans->SetTitle(Form("%s [%d]; P; #mu",etaBins[etaBins_].c_str(),year));
-  gMeans->Draw("AP");
-  //c1->Print(Form("%d_%d_P_Bias.png",year,etaBins_));
-  plots.emplace_back(gMeans);
-
-  delete c1;
-
-  return g;
+  return g_;
 
 }
 
 int Stack() {
 
-  std::vector<int> etaBins = { 0, 1, 2, 3, 4};
+  std::vector<int> etaBins = { 0, 1, 2, 3};
 
   TCanvas* c = new TCanvas("c","c",3*500,2*500);
   c->Divide(3,2);
@@ -440,15 +249,13 @@ int Stack() {
   std::vector<int>  Years = { 2016, 2017, 2018 };
 
   std::pair<float,float> MuonB = { 0., 1.2 };
-  std::pair<float,float> MuonO = { 1.2, 2.1 };
   std::pair<float,float> MuonE = { 2.1, 2.4 };
 
   std::vector<std::string> titleEtaBins = {
     Form("%.1f <=|#eta|<= %.1f [globalHighPtId]; P [GeV]; Resolution [%%]", MuonB.first, MuonB.second),
-    Form("%.1f <|#eta|<= %.1f [globalHighPtId]; P [GeV]; Resolution [%%]", MuonO.first, MuonO.second),
     Form("%.1f <|#eta|<= %.1f [globalHighPtId]; P [GeV]; Resolution [%%]", MuonE.first, MuonE.second),
     Form("%.1f <=|#eta|<= %.1f [trackerHighPtId]; P [GeV]; Resolution [%%]", MuonB.first, MuonB.second),
-    Form("%.1f <|#eta|<= %.1f [trackerHighPtId]; P [GeV]; Resolution [%%]", MuonO.first, MuonE.second),
+    Form("%.1f <|#eta|<= %.1f [trackerHighPtId]; P [GeV]; Resolution [%%]", MuonE.first, MuonE.second),
   };
 
   std::vector<Int_t> colorEtaBins = {
@@ -457,10 +264,9 @@ int Stack() {
 
   std::vector<std::string> legendEtaBins = {
     Form("%.1f <=|#eta|<= %.1f", MuonB.first, MuonB.second),
-    Form("%.1f <|#eta|<= %.1f", MuonO.first, MuonO.second),
     Form("%.1f <|#eta|<= %.1f", MuonE.first, MuonE.second),
     Form("%.1f <=|#eta|<= %.1f", MuonB.first, MuonB.second),
-    Form("%.1f <|#eta|<= %.1f", MuonO.first, MuonE.second),
+    Form("%.1f <|#eta|<= %.1f", MuonE.first, MuonE.second),
   };
 
   for(auto yr: Years){
@@ -485,7 +291,7 @@ int Stack() {
       g->SetLineColor(colorEtaBins[etaBins_]);
       g->SetMarkerColor(colorEtaBins[etaBins_]);
       g->SetMarkerStyle(23);
-      if (etaBins_ < 3){
+      if (etaBins_ < 2){
         lG->AddEntry(g,legendEtaBins[etaBins_].c_str());
         mgG->Add(g,"P");
       } else {
@@ -499,7 +305,7 @@ int Stack() {
     gPad->SetBottomMargin(0.15);
     mgG->Draw("AP");
     lG->Draw();
-    mgG->GetXaxis()->SetRangeUser(0,3100);
+    mgG->GetXaxis()->SetRangeUser(0,3600);
     mgG->GetYaxis()->SetRangeUser(0.,0.18);
 
     c->cd((yr%2015)+3);
@@ -507,7 +313,7 @@ int Stack() {
     gPad->SetBottomMargin(0.15);
     mgT->Draw("AP");
     lT->Draw();
-    mgT->GetXaxis()->SetRangeUser(0,3100);
+    mgT->GetXaxis()->SetRangeUser(0,3600);
     mgT->GetYaxis()->SetRangeUser(0.,0.18);
   }
 

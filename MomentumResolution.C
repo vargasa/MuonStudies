@@ -77,11 +77,10 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
   HCutFlow = new TH1D("HCutFlow","",50,0.,50.);  /* Limits are meaningless here */
   fOutput->Add(HCutFlow);
 
-  const Double_t PBins[16] = {
+  const Double_t PBins[13] = {
     52.,72.,100.,150.,200.,
-    300.,400.,600.,800.,1000.,
-    1300.,1600.,2000.,2500,3100,
-    4500
+    300.,400.,600.,800.,1200.,
+    1800.,2600.,3600.
   };
 
   const Double_t PResBins[198] = {
@@ -120,10 +119,10 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
     0.93,0.94,0.95,0.96,0.97,0.98,
   };
 
-  HPs = new TH3F("HPs","Momentum;PtGen;Pt;TunePPt",15,PBins,15,PBins,15,PBins);
+  HPs = new TH3F("HPs","Momentum;PtGen;Pt;TunePPt",12,PBins,12,PBins,12,PBins);
   fOutput->Add(HPs);
 
-  HPResB_T = new TH3F("HPResB_T","Momentum Resolution;P;Pt;PRes",15,PBins,15,PBins,197,PResBins);
+  HPResB_T = new TH3F("HPResB_T","Momentum Resolution;P;Pt;PRes",12,PBins,12,PBins,197,PResBins);
   HPResE_T = static_cast<TH3F*>(HPResB_T->Clone());
   HPResE_T->SetName("HPResE_T");
 
