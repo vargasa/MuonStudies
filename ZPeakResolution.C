@@ -16,10 +16,8 @@ ZPeakResolution::ZPeakResolution(TTree *)
 
   HMassZPt_A_G = 0;
   HMassZPt_B_G = 0;
-  HMassZPt_C_G = 0;
   HMassZPt_A_T = 0;
   HMassZPt_B_T = 0;
-  HMassZPt_C_T = 0;
 
   HMuonPtl1 = 0;
   HMuonPtl2 = 0;
@@ -104,19 +102,12 @@ void ZPeakResolution::SlaveBegin(TTree *tree) {
     100., 102., 104., 106.
   };
 
-  // A - Both Muons are within abs(eta) <= 1.2
   HMassZPt_A_G = new TH2F("HMassZPt_A_G","", 7, PtBins_MRes, 18, ZMassBins);
   fOutput->Add(HMassZPt_A_G);
 
-  // B - Leading Muon is within 1.2 < abs(eta) <= 1.6
   HMassZPt_B_G = static_cast<TH2F*>(HMassZPt_A_G->Clone());
   HMassZPt_B_G->SetName("HMassZPt_B_G");
   fOutput->Add(HMassZPt_B_G);
-
-  // C - Leading Muon is within abs(eta) > 1.6
-  HMassZPt_C_G = static_cast<TH2F*>(HMassZPt_A_G->Clone());
-  HMassZPt_C_G->SetName("HMassZPt_C_G");
-  fOutput->Add(HMassZPt_C_G);
 
   HMassZPt_A_T = static_cast<TH2F*>(HMassZPt_A_G->Clone());
   HMassZPt_A_T->SetName("HMassZPt_A_T");
@@ -125,10 +116,6 @@ void ZPeakResolution::SlaveBegin(TTree *tree) {
   HMassZPt_B_T = static_cast<TH2F*>(HMassZPt_A_G->Clone());
   HMassZPt_B_T->SetName("HMassZPt_B_T");
   fOutput->Add(HMassZPt_B_T);
-
-  HMassZPt_C_T = static_cast<TH2F*>(HMassZPt_A_G->Clone());
-  HMassZPt_C_T->SetName("HMassZPt_C_T");
-  fOutput->Add(HMassZPt_C_T);
 
   HMassZ = new TH1F("HMassZ","", 100,50,10000);
   fOutput->Add(HMassZ);
@@ -328,6 +315,10 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
   ReadEntry(entry);
 
+#ifndef CMSDATA
+  HCutFlow->Fill("genWeight",*genWeight);
+#endif
+
   HCutFlow->FillS("NoCuts");
 
   if (!MuonTest()){
@@ -352,7 +343,6 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
             Muon_ip3d,Muon_sip3d,
             Muon_tightId);
 #endif
-
 
   GoodMuon = ZPeakResolution::GetGoodMuon(Mus);
 
@@ -396,11 +386,11 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
    HCutFlow->FillS("ZCandidate");
 
-   auto FillHistos53 = [&](TH2F* A_G, TH2F* B_G, TH2F* C_G,
-                           TH2F* A_T, TH2F* B_T, TH2F* C_T) {
+   auto FillHistos53 = [&](TH2F* A_G, TH2F* B_G,
+                           TH2F* A_T, TH2F* B_T) {
      TH2F *hl1, *hl2 = NULL;
 
-     std::pair<Float_t,Float_t> etaLimit = { 1.2, 1.6 };
+     std::pair<Float_t,Float_t> etaLimit = {1.2, 2.4 };
      Int_t globalId = 2;
 
      if( abs(lep1.Eta()) <= etaLimit.first ) { // A
@@ -426,17 +416,6 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
        } else {
          hl2 = B_T;
        }
-     } else if (abs(lep1.Eta()) > etaLimit.second) {
-       if(Muon_highPtId[l1] == globalId){
-         hl1 = C_G;
-       } else {
-         hl1 = C_T;
-       }
-       if(Muon_highPtId[l2] == globalId){
-         hl2 = C_G;
-       } else {
-         hl2 = C_T;
-       }
      }
 
 #ifndef CMSDATA
@@ -452,8 +431,8 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
    std::pair<float,float> MassWindow = { 75., 110. };
 
    if ( zb.M() > MassWindow.first and zb.M() < MassWindow.second ){
-     FillHistos53(HMassZPt_A_G, HMassZPt_B_G, HMassZPt_C_G,
-                  HMassZPt_A_T, HMassZPt_B_T, HMassZPt_C_T);
+     FillHistos53(HMassZPt_A_G, HMassZPt_B_G,
+                  HMassZPt_A_T, HMassZPt_B_T);
    }
 
    return kTRUE;
@@ -469,7 +448,7 @@ void ZPeakResolution::Terminate() {
   const Int_t Year_ = 2018;
 #endif
 
-  std::unique_ptr<TFile> fOut(TFile::Open("MuonStudies_PtHistos.root","UPDATE"));
+  std::unique_ptr<TFile> fOut(TFile::Open("MuonStudies_ZPeakResolution.root","UPDATE"));
   fOut->mkdir(Form("%d",Year_));
   fOut->mkdir(Form("%d/%s",Year_,SampleName.Data()));
   fOut->cd(Form("%d/%s",Year_,SampleName.Data()));
