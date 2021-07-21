@@ -33,7 +33,9 @@ double DSCB(double *x, double *par){
 
 TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false){
 
-  TFile *f1 = TFile::Open("MuonStudies.root");
+  TFile *f1 = TFile::Open("MuonStudies_ZPeakResolution.root");
+
+  int nBins = 7;
 
   TCanvas* c1 = new TCanvas("c1","c1",2000,1000);
   c1->Divide(4,2);
@@ -55,9 +57,15 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 
   Double_t YLimit = 0.;
 
+  Bool_t breakLoop = false;
+
   TH1D *h;
 
-  for(int k = 1; k < 8; ++k){
+  for(int k = 1; k <= nBins; ++k){
+
+    if(breakLoop)
+      break;
+
     c1->cd(k);
 
     Float_t ptBinLow = h2->GetXaxis()->GetBinLowEdge(k);
@@ -65,11 +73,26 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 
     Float_t ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+1);
     ptBins.emplace_back(ptBinLow);
-    if(k==7)
+    if( k == nBins )
       ptBins.emplace_back(ptBinHigh);
 
     h = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k));
     h->SetTitle(Form("%s [%.0f:%.0f];Dimuon Mass [GeV];Event Count", hname.c_str(),ptBinLow, ptBinHigh));
+
+
+    // Merge bins with low statistics
+    if ((hname.find("HMassZPt_A_T") != string::npos
+         or hname.find("HMassZPt_B_T") != string::npos) and ptBinLow == 200.){
+      nBins -= 2; /*Merging three bins into 1*/
+      ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+2);
+      TH1D* hb2 = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k+1));
+      ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+3);
+      TH1D* hb3 = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k+2));
+      h->Add(hb2);
+      h->Add(hb3);
+      ptBins.emplace_back(ptBinHigh);
+      breakLoop = true;
+    }
 
     if (k == 1)
       YLimit = h->GetMaximum()*1.1;
@@ -146,10 +169,10 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   }
 
 
-  TGraphAsymmErrors* g = new TGraphAsymmErrors(7);
+  TGraphAsymmErrors* g = new TGraphAsymmErrors(nBins);
   g->SetName(Form("%d_%s_g",year,hname.c_str()));
 
-  for(int i = 0; i < 7; ++i){
+  for(int i = 0; i < nBins; ++i){
     Double_t mid = (ptBins[i]+ptBins[i+1])/2.;
     Double_t dx = mid - ptBins[i];
     g->SetPoint(i,mid,sigmas[i]);
@@ -162,6 +185,7 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   g->SetMarkerStyle(21);
   g->SetTitle(Form("Mass Resolution [%d]; Pt; Mass Resolution",year));
   g->Draw("AP");
+  g->Print();
   //g->GetXaxis()->SetRangeUser(0,3100);
   fname = Form("%d_%s.png",year,hname.c_str());
   if(isData)
@@ -176,41 +200,42 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 int StackMRes(){
 
   std::vector<std::string> Histos2D =
-    { "HMassZPt_A_G", "HMassZPt_B_G", "HMassZPt_C_G",
-      "HMassZPt_A_T","HMassZPt_B_T", "HMassZPt_C_T" };
+    { "HMassZPt_A_G", "HMassZPt_B_G",
+      "HMassZPt_A_T","HMassZPt_B_T" };
 
-  TCanvas* cp1 = new TCanvas("cp1","cp1", 3*500, 2*500);
-  cp1->Divide(3,2);
+  TCanvas* cp1 = new TCanvas("cp1","cp1", 2*500, 2*500);
+  cp1->Divide(2,2);
 
-  Int_t year = 2018;
-  Int_t k = 1;
+  std::vector<Int_t> years = {2016,2017,2018};
 
-  for(auto hname : Histos2D){
-    TMultiGraph *mg = new TMultiGraph();
-    mg->SetName(Form("%d_mg_%s",year,hname.c_str()));
-    mg->SetTitle(Form("%s [%d];Pt [GeV];Mass Resolution at Z Peak [GeV]",hname.c_str(),year));
-    TGraphAsymmErrors* gmc = plotFits(year, hname);
-    gmc->SetLineColor(kRed);
-    gmc->SetMarkerColor(kRed);
-    TGraphAsymmErrors* gdata = plotFits(year, hname, true);
-    gdata->SetLineColor(kBlack);
-    gdata->SetMarkerColor(kBlack);
-    mg->Add(gmc,"P");
-    mg->Add(gdata,"P");
-    mg->GetYaxis()->SetRangeUser(-1.,10.);
-    cp1->cd(k);
-    mg->Draw("AP");
+  for(auto year: years){
+    Int_t k = 1;
+    for(auto hname : Histos2D){
+      TMultiGraph *mg = new TMultiGraph();
+      mg->SetName(Form("%d_mg_%s",year,hname.c_str()));
+      mg->SetTitle(Form("%s [%d];Pt [GeV];Mass Resolution at Z Peak [GeV]",hname.c_str(),year));
+      TGraphAsymmErrors* gmc = plotFits(year, hname);
+      gmc->SetLineColor(kRed);
+      gmc->SetMarkerColor(kRed);
+      TGraphAsymmErrors* gdata = plotFits(year, hname, true);
+      gdata->SetLineColor(kBlack);
+      gdata->SetMarkerColor(kBlack);
+      mg->Add(gmc,"P");
+      mg->Add(gdata,"P");
+      mg->GetYaxis()->SetRangeUser(-1.,10.);
+      cp1->cd(k);
+      mg->Draw("AP");
 
-    TLegend *l = new TLegend();
-    l->SetName(Form("%d",year));
-    l->AddEntry(gmc,"MC");
-    l->AddEntry(gdata,"Data");
-    l->Draw();
-    std::cout << k << "\t" << hname << "\n";
-    ++k;
+      TLegend *l = new TLegend();
+      l->SetName(Form("%d",year));
+      l->AddEntry(gmc,"MC");
+      l->AddEntry(gdata,"Data");
+      l->Draw();
+      std::cout << k << "\t" << hname << "\n";
+      ++k;
+    }
+    cp1->Print(Form("%d_.png",year));
   }
-
-  cp1->Print(Form("%d_.png",year));
 
   return 0;
 }
