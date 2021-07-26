@@ -2,6 +2,50 @@
 
 using namespace RooFit ;
 
+double GetLegacyResBarrel(const int& year, double p){
+
+  // This is only for Muon Barrel
+
+  double res = -1.;
+
+  if (year == 2016) {
+    res = 0.006152416185063
+      + 0.000100116444003*p
+      - 0.000000103718255*pow(p,2)
+      + 0.000000000056979*pow(p,3)
+      - 0.000000000000011*pow(p,4);
+  } else if (year == 2017) {
+    res = 0.005265784542684
+      + 0.000114819686533*p
+      - 0.000000130882947*pow(p,2)
+      + 0.000000000069409*pow(p,3)
+      - 0.000000000000013*pow(p,4);
+  } else if (year == 2018) {
+    res = 0.006204084326376
+      + 0.000095866688875*p
+      - 0.000000097138211*pow(p,2)
+      + 0.000000000048821*pow(p,3)
+      - 0.000000000000009*pow(p,4);
+  }
+
+  return res;
+
+}
+
+TGraph* GetLegacyPlot(const int& year, TGraph* gNew){
+  const int np = gNew->GetN() - 1;
+  TGraph* g = new TGraph(np);
+  double p,res;
+  for (int i = 0; i < np; ++i) {
+    gNew->GetPoint(i,p,res);
+    double_t resLegacy = GetLegacyResBarrel(year,p);
+    std::cout << year << "\t" << p << "\t" << res << "\t" << resLegacy << "\n" ;
+    if (resLegacy < 0.) throw;
+    g->SetPoint(i,p,resLegacy);
+  }
+  return g;
+}
+
 double DSCB(double *x, double *par){
 
   double alpha_l = par[0];
@@ -246,10 +290,13 @@ int Stack() {
   TCanvas* c = new TCanvas("c","c",3*500,2*500);
   c->Divide(3,2);
 
+  TCanvas* cRatio = new TCanvas("cRatio","cRatio",3*500,1*500);
+  cRatio->Divide(3,1);
+
   std::vector<int>  Years = { 2016, 2017, 2018 };
 
   std::pair<float,float> MuonB = { 0., 1.2 };
-  std::pair<float,float> MuonE = { 2.1, 2.4 };
+  std::pair<float,float> MuonE = { 1.2, 2.4 };
 
   std::vector<std::string> titleEtaBins = {
     Form("%.1f <=|#eta|<= %.1f [globalHighPtId]; P [GeV]; Resolution [%%]", MuonB.first, MuonB.second),
@@ -259,7 +306,7 @@ int Stack() {
   };
 
   std::vector<Int_t> colorEtaBins = {
-    kRed, kBlack, kBlue, kRed, kBlack
+    kRed, kBlack, kRed, kBlack
   };
 
   std::vector<std::string> legendEtaBins = {
@@ -285,6 +332,9 @@ int Stack() {
     TLegend *lT = new TLegend(0.7,0.2,0.95,0.3);
     lG->SetName(Form("lT_%d",yr));
 
+    TGraph* gRatioLegacy;
+    TGraph* gNew;
+
     for(auto etaBins_: etaBins){
       TGraphAsymmErrors *g = GetResolutionGraph(yr,etaBins_);
       g->Print();
@@ -292,6 +342,7 @@ int Stack() {
       g->SetMarkerColor(colorEtaBins[etaBins_]);
       g->SetMarkerStyle(23);
       if (etaBins_ < 2){
+	if (etaBins_ == 0) gNew = g;
         lG->AddEntry(g,legendEtaBins[etaBins_].c_str());
         mgG->Add(g,"P");
       } else {
@@ -299,6 +350,22 @@ int Stack() {
         lT->AddEntry(g,legendEtaBins[etaBins_].c_str());
       }
     }
+
+    // Print Ratio
+    TMultiGraph *mgR = new TMultiGraph(Form("mgR_%d",yr),
+       Form("UL[Red] vs Legacy[Black] %d;P[GeV]; Resolution [%%]",yr));
+    mgR->Add(gNew,"P");
+    std::cout << "nRatio: " << gNew->GetN() << "\n\n\n";
+    gRatioLegacy = GetLegacyPlot(yr,gNew);
+    gRatioLegacy->SetMarkerStyle(23);
+    gRatioLegacy->SetMarkerColor(kBlack);
+    std::cout << "nLegacy: " << gRatioLegacy->GetN() << "\n\n\n";
+    gRatioLegacy->Print();
+    mgR->Add(gRatioLegacy,"P");
+    cRatio->cd(yr%2015);
+    mgR->Draw("AP");
+    mgR->GetYaxis()->SetRangeUser(0.,0.18);
+    cRatio->Print("ComparissonToLegacy.png");
 
     c->cd(yr%2015);
     gPad->SetLeftMargin(0.15);
