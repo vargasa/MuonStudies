@@ -223,6 +223,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     hs_->SetName(Form("hs__%s_%d",etaBins[etaBins_].c_str(),j));
     Double_t ptBinMin = 0;
     Double_t ptBinMax = 0.;
+
+    Bool_t flipBit = true;
+    double xnorm = -1.;
     for(int i = 0; i < samples[year].size(); ++i){
       std::cout << Form("%d/%s/%s\n",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str()) ;
       auto h3 =
@@ -232,13 +235,17 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
       cps->cd(j);
       auto h1 =
         static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][i].first.c_str(),j),j));
+      if (h1->GetEntries() > 1e2 and flipBit) {
+        xnorm = samples[year][i].second;
+        flipBit = false;
+      }
       TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
       Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
       ptBinMin = h2->GetXaxis()->GetBinLowEdge(j);
       ptBinMax = h2->GetXaxis()->GetBinLowEdge(j+1);
       hs->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
       hs_->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-      h1->Scale(luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
+      h1->Scale(luminosity[year]*1e3*GetModifiedXSec(xnorm,samples[year][i].second)/sumGenWeight);
       h1->SetTitle(Form("%s;P Resolution;EventCount * #sigma",samples[year][i].first.c_str()));
       //h1->GetYaxis()->SetRangeUser(0.,yMax);
       h1->SetFillColor(i+1);
@@ -316,11 +323,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
   for(int i = 0; i < nPoints_; ++i){
     Double_t mid = (ptBins_[i]+ptBins_[i+1])/2.;
     Double_t dx = mid - ptBins_[i];
-    std::cout << mid << std::endl;
     g_->SetPoint(i,mid,sigmas_[i]);
-    //g_->SetPointError(i,dx,dx,sigmaErrors_[i],sigmaErrors_[i]);
-    g_->SetPointError(i,dx,dx,0,0);
-    std::cout << sigmas_[i] << std::endl;
+    g_->SetPointError(i,dx,dx,sigmaErrors_[i],sigmaErrors_[i]);
+    //    g_->SetPointError(i,dx,dx,0,0);
   }
 
   TCanvas* c1_ = new TCanvas("c1","c1",500,500);
