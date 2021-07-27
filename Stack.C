@@ -75,7 +75,7 @@ double DSCB(double *x, double *par){
 
 }
 
-TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
+TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
   std::cout << "=============\t" << year << "\t=============\t" << etaBins_ << "\t=============\n";
 
@@ -174,14 +174,46 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
   Double_t xmin = -0.35;
   Double_t xmax = 0.35;
 
-
-
-
   std::vector<Double_t> sigmas_;
   std::vector<Double_t> ptBins_;
   std::vector<Double_t> sigmaErrors_;
 
-  Double_t prevSigma_ = -1.;
+  Double_t prevSigma_ = 0.01; // Bottom limit 1%
+
+
+  auto GetMergedHisto = [&] (const int& initialBin, const int& endBin){
+    THStack* hsMerged = new THStack(Form("hsMerged_%d_%d_%d",etaBins_,initialBin,endBin),"hsMerged");
+    TH1D* hMerged;
+    Double_t pBinMin, pBinMax;
+    for(int j = initialBin; j <= endBin /*P Bins*/; ++j) {
+      for (int i = 0; i < samples[year].size(); ++i) {
+        auto h3 =
+          static_cast<TH3D*>(f1->Get(Form("%d/%s/%s",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str())));
+        auto h2 =
+          static_cast<TH2D*>(h3->Project3D("zx"));
+        pBinMin = h2->GetXaxis()->GetBinLowEdge(initialBin);
+        pBinMax = h2->GetXaxis()->GetBinLowEdge(endBin+1);
+        auto h1 =
+          static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][i].first.c_str(),j),j));
+        TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
+        Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
+        if( j == initialBin ) {
+          hMerged = static_cast<TH1D*>(h1->Clone());
+        } else {
+          if (h1->GetEntries()>2e2)
+            hMerged->Add(h1,luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
+        }
+      }
+    }
+    hsMerged->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",pBinMin,pBinMax,titleEtaBins[etaBins_].c_str(),year));
+    hsMerged->Add(hMerged,"F");
+    return hsMerged;
+  };
+
+  auto GetModifiedXSec = [] (const double& xnorm, const double& xsec) {
+    const double factor = 1/xnorm;
+    return factor*xsec;
+  };
 
   for(int j = 1; j <= 12 /*P Bins*/; ++j) {
     Double_t yMax = 0.;
@@ -214,10 +246,17 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
       h1->Draw("HIST");
       hs->Add(h1,"F");
       if( h1->GetEntries() > 1e2){
+	if (xnorm<0.) throw;
         hs_->Add(h1,"F");
       }
     }
     ptBins_.emplace_back(ptBinMin);
+
+    if( etaBins_ > 1 and ptBinMin > 1600){
+      hs_ = GetMergedHisto(j,12);
+      j=13;
+      ptBinMax = 3600;
+    }
 
     cps->cd(11);
     hs->Draw("HIST");
@@ -238,27 +277,40 @@ TGraphAsymmErrors* GetResolutionGraph(const int year, const int& etaBins_) {
                          DSCB, xmin, xmax, nParams);
     fxDCB->SetParNames ("#alpha_{low}","#alpha_{high}","n_{low}", "n_{high}", "#mu", "#sigma", "N");
     fxDCB->SetParameters(1., 1., 10, 10, h->GetMean(), h->GetRMS(), h->GetMaximum());
-    std::string fitOption = "MR W L";
-    if ( j != 1 )
-      fxDCB->SetParLimits(5,prevSigma_,0.2); // Require higher sigma for higher Pt
-    for(int i = 0; i < 20; ++i)
+    
+    std::string fitOption = "M R WL";
+    fxDCB->SetParLimits(5,prevSigma_,0.2); // Require higher sigma for higher Pt
+    for(int i = 0; i < 2; ++i)
       h->Fit(fxDCB,fitOption.c_str(),"",xmin,xmax);
     prevSigma_ = fxDCB->GetParameter(5);
     sigmas_.emplace_back(fxDCB->GetParameter(5));
     sigmaErrors_.emplace_back(fxDCB->GetParError(5));
     fxDCB->Draw("SAME");
 
+
+    RooRealVar pres("pres","P Residual",xmin,xmax);
+    pres.setBins(10000);
+    RooAbsPdf* dcb = RooFit::bindPdf(fxDCB,pres);
+    RooDataHist dh1("dh1","dh1",pres,h);
+    RooPlot* frame = pres.frame(Title(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year)));
+
+    dcb->fitTo(dh1,/*AsymptoticError(true)*/SumW2Error(false));
+    dh1.plotOn(frame);
+    dcb->plotOn(frame);
+
     cpt->cd(j);
     //hs_->Draw("HIST");
-    h->Draw();
-    h->GetXaxis()->SetRangeUser(-0.4,0.4);
-    fxDCB->Draw("SAME");
-    cps->Print(Form("%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
+    //h->Draw();
+    //h->GetXaxis()->SetRangeUser(-0.4,0.4);
+    //fxDCB->Draw("SAME");
+    frame->Draw();
+    //cps->Print(Form("%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
   }
 
   ptBins_.emplace_back(3600); // Last limit
 
-  const int nPoints_ = 12;
+  int nPoints_ = 12;
+  if (etaBins_ > 1) nPoints_ = 11;
   TGraphAsymmErrors* g_ = new TGraphAsymmErrors(nPoints_);
 
   for(int i = 0; i < nPoints_; ++i){
