@@ -83,6 +83,13 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
     1800.,2600.,3600.
   };
 
+  const Double_t PBins_trackerHighPt[11] = {
+    52., 72., 100., 150., 200.,
+    300., 500., 800., 1200., 2000.,
+    3600.,
+  };
+
+
   const Double_t PResBins[198] = {
     -0.99,-0.98,-0.97,-0.96,-0.95,-0.94,
     -0.93,-0.92,-0.91,-0.9,-0.89,-0.88,
@@ -122,7 +129,10 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
   HPs = new TH3F("HPs","Momentum;PtGen;Pt;TunePPt",12,PBins,12,PBins,12,PBins);
   fOutput->Add(HPs);
 
-  HPResB_T = new TH3F("HPResB_T","Momentum Resolution;P;Pt;PRes",12,PBins,12,PBins,197,PResBins);
+  HPResB_T = new TH3F("HPResB_T","Momentum Resolution;P;Pt;PRes",
+                      10,PBins_trackerHighPt,
+                      10,PBins_trackerHighPt,
+                      197,PResBins);
   HPResE_T = static_cast<TH3F*>(HPResB_T->Clone());
   HPResE_T->SetName("HPResE_T");
 
@@ -131,14 +141,17 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
   HPtResE_T = static_cast<TH3F*>(HPtResB_T->Clone());
   HPtResE_T->SetName("HPtResE_T");
 
-  HPResB_G = static_cast<TH3F*>(HPResB_T->Clone());
+  HPResB_G = new TH3F("HPResB_G","Momentum Resolution;P;Pt;PRes",
+                      12,PBins,
+                      12,PBins,
+                      197,PResBins);
   HPResB_G->SetName("HPResB_G");
-  HPResE_G = static_cast<TH3F*>(HPResB_T->Clone());
+  HPResE_G = static_cast<TH3F*>(HPResB_G->Clone());
   HPResE_G->SetName("HPResE_G");
 
-  HPtResB_G = static_cast<TH3F*>(HPResB_T->Clone());
+  HPtResB_G = static_cast<TH3F*>(HPResB_G->Clone());
   HPtResB_G->SetName("HPtResB_G");
-  HPtResE_G = static_cast<TH3F*>(HPResB_T->Clone());
+  HPtResE_G = static_cast<TH3F*>(HPResB_G->Clone());
   HPtResE_G->SetName("HPtResE_G");
 
   fOutput->Add(HPResB_T);
@@ -153,10 +166,6 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
 
   HMassZ = new TH1F("HMassZ","Mass(Z);DiMuon Mass;Event Count", 100,50,10000);
   fOutput->Add(HMassZ);
-
-  const Double_t PtBins_MRes[8] = {
-    53,75,100,150,200,300,450,800
-  };
 
 }
 
