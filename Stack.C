@@ -215,7 +215,13 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     return factor*xsec;
   };
 
-  for(int j = 1; j <= 12 /*P Bins*/; ++j) {
+
+  const int nPBins = static_cast<TH3D*>
+    (f1->Get(Form("%d/%s/%s",year,samples[year][0].first.c_str(),
+                  etaBins[etaBins_].c_str())))->GetNbinsX();
+
+  for(int j = 1; j <= nPBins; ++j) {
+
     Double_t yMax = 0.;
     THStack* hs = new THStack("hs",Form("%s;P Resolution;Event Count",etaBins[etaBins_].c_str()));
     THStack* hs_ = static_cast<THStack*>(hs->Clone());
@@ -245,7 +251,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
       ptBinMax = h2->GetXaxis()->GetBinLowEdge(j+1);
       hs->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
       hs_->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-      h1->Scale(luminosity[year]*1e3*GetModifiedXSec(xnorm,samples[year][i].second)/sumGenWeight);
+      h1->Scale(luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
       h1->SetTitle(Form("%s;P Resolution;EventCount * #sigma",samples[year][i].first.c_str()));
       //h1->GetYaxis()->SetRangeUser(0.,yMax);
       h1->SetFillColor(i+1);
@@ -258,12 +264,6 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
       }
     }
     ptBins_.emplace_back(ptBinMin);
-
-    if( etaBins_ > 1 and ptBinMin > 1600){
-      hs_ = GetMergedHisto(j,12);
-      j=13;
-      ptBinMax = 3600;
-    }
 
     cps->cd(11);
     hs->Draw("HIST");
@@ -282,18 +282,58 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
     TF1 *fxDCB = new TF1(Form("fxDCB_%d_%s",year,etaBins[etaBins_].c_str()),
                          DSCB, xmin, xmax, nParams);
-    fxDCB->SetParNames ("#alpha_{low}","#alpha_{high}","n_{low}", "n_{high}", "#mu", "#sigma", "N");
+    fxDCB->SetParNames("#alpha_{low}","#alpha_{high}","n_{low}", "n_{high}", "#mu", "#sigma", "N");
     fxDCB->SetParameters(1., 1., 10, 10, h->GetMean(), h->GetRMS(), h->GetMaximum());
-    
-    std::string fitOption = "M R WL";
     fxDCB->SetParLimits(5,prevSigma_,0.2); // Require higher sigma for higher Pt
-    for(int i = 0; i < 2; ++i)
+
+    h->SetName(Form("%d_%s_%d",year,etaBins[etaBins_].c_str(),j));
+
+    std::string fitOption = "QMWL";
+
+    h->Fit(fxDCB,fitOption.c_str(),"",xmin,xmax);
+
+    Double_t errorTmp = fxDCB->GetParError(5);
+    Double_t sigmaTmp = fxDCB->GetParameter(5);
+    int counter = 1;
+    const double goodError = 0.02;
+
+    auto flipFitOption  = [&] (){
+      if(fitOption.compare("QMWL") == 0) {
+        fitOption = "QME";
+      } else if(fitOption.compare("QME") == 0) {
+        fitOption = "QMWL";
+      }
+      std::cout << "Fliping fitOption:\n\t" << fitOption << "\n";
+      counter = 1;
+    };
+
+    auto Fit = [&] () {
+      std::cout << counter << "\n";
+      if( counter > 10 ) flipFitOption();
       h->Fit(fxDCB,fitOption.c_str(),"",xmin,xmax);
+      errorTmp = fxDCB->GetParError(5);
+      sigmaTmp = fxDCB->GetParameter(5);
+      ++counter;
+    };
+
+    while( errorTmp > goodError) {
+      Fit();
+
+    }
+
+    if( isnan(errorTmp) ) {
+      fitOption = "QME";
+      Fit();
+      counter = 1;
+      while( errorTmp > goodError){
+        Fit();
+      }
+    }
+
     prevSigma_ = fxDCB->GetParameter(5);
     sigmas_.emplace_back(fxDCB->GetParameter(5));
     sigmaErrors_.emplace_back(fxDCB->GetParError(5));
     fxDCB->Draw("SAME");
-
 
     RooRealVar pres("pres","P Residual",xmin,xmax);
     pres.setBins(10000);
@@ -301,7 +341,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     RooDataHist dh1("dh1","dh1",pres,h);
     RooPlot* frame = pres.frame(Title(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year)));
 
-    dcb->fitTo(dh1,/*AsymptoticError(true)*/SumW2Error(false));
+    dcb->fitTo(dh1,SumW2Error(true));
     dh1.plotOn(frame);
     dcb->plotOn(frame);
 
@@ -311,13 +351,13 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     //h->GetXaxis()->SetRangeUser(-0.4,0.4);
     //fxDCB->Draw("SAME");
     frame->Draw();
-    //cps->Print(Form("%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
+    cps->Print(Form("%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
   }
 
   ptBins_.emplace_back(3600); // Last limit
 
-  int nPoints_ = 12;
-  if (etaBins_ > 1) nPoints_ = 11;
+  int nPoints_ = 11;
+  //if (etaBins_ > 1) nPoints_ = 11;
   TGraphAsymmErrors* g_ = new TGraphAsymmErrors(nPoints_);
 
   for(int i = 0; i < nPoints_; ++i){
