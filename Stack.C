@@ -202,7 +202,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
           hMerged = static_cast<TH1D*>(h1->Clone());
         } else {
           if (h1->GetEntries()>1e2)
-            hMerged->Add(h1,luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
+            hMerged->Add(h1/*,luminosity[year]*1e3*samples[year][i].second/sumGenWeight*/);
         }
       }
     }
@@ -234,7 +234,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
   };
 
 
-  const int nPBins = static_cast<TH3D*>
+  int nPBins = static_cast<TH3D*>
     (f1->Get(Form("%d/%s/%s",year,samples[year][0].first.c_str(),
                   etaBins[etaBins_].c_str())))->GetNbinsX();
 
@@ -263,7 +263,8 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
       ptBinMax = h2->GetXaxis()->GetBinLowEdge(j+1);
       hs->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
       hs_->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-      h1->Scale(luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
+      if (year == 2016)
+        h1->Scale(luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
       h1->SetTitle(Form("%s;P Resolution;EventCount * #sigma",samples[year][i].first.c_str()));
       //h1->GetYaxis()->SetRangeUser(0.,yMax);
       h1->SetFillColor(i+1);
@@ -276,6 +277,14 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     }
     ptBins_.emplace_back(ptBinMin);
 
+    if( etaBins_ > 1 and ptBinMin > 700){
+      const int nPBinsTmp = nPBins;
+      hs_ = GetMergedHisto(j,nPBins);
+      nPBins = j;
+      j = nPBinsTmp+1;
+      ptBinMax = 3000;
+    }
+
 
     cps->cd(11);
     hs->Draw("HIST");
@@ -284,21 +293,23 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     TH1* h = static_cast<TH1D*>(hs_->GetStack()->Last());
     h->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
 
-
-
-    if (etaBins_ == 0 and ptBinMin == 800.){
+    if (etaBins_ == 0 and ptBinMin == 800.) {
       xmin = -0.2;
       xmax = 0.2;
-    } else if (etaBins_ == 0 and ptBinMin == 1.2e3){
+    } else if (etaBins_ == 0 and ptBinMin == 1.2e3) {
       xmin = -0.2;
       xmax = 0.2;
-    } else if (etaBins_ == 0 and ptBinMin == 72.){
+    } else if (etaBins_ == 0 and ptBinMin == 72.) {
       xmin = -0.1;
       xmax = 0.1;
+    } else if (etaBins_ == 3 and ptBinMin == 52.) {
+      xmin = -0.2;
+      xmax = 0.2;
     } else {
       xmin = -0.3;
       xmax = 0.3;
     }
+
 
 
     TF1 *fxDCB = new TF1(Form("fxDCB_%d_%s_%.0f",year,etaBins[etaBins_].c_str(),ptBinMin),
@@ -356,20 +367,24 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     sigmaErrors_.emplace_back(fxDCB->GetParError(5));
     fxDCB->Draw("SAME");
 
+
     RooRealVar pres("pres","P Residual",xmin,xmax);
     pres.setBins(10000);
     RooAbsPdf* dcb = RooFit::bindPdf(fxDCB,pres);
     RooDataHist dh1("dh1","dh1",pres,h);
-    RooPlot* frame = pres.frame(Title(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year)));
+    RooPlot* frame = pres.frame(Title(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN}) [#sigma %.2f];Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year,fxDCB->GetParameter(5))));
+    frame->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN}) [#sigma %.2f];Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year,fxDCB->GetParameter(5)));
 
     dcb->fitTo(dh1,SumW2Error(true));
     dh1.plotOn(frame);
     dcb->plotOn(frame);
 
     cpt->cd(j);
+    gPad->SetLeftMargin(0.15);
+    gPad->SetBottomMargin(0.15);
     //hs_->Draw("HIST");
-    h->Draw();
-    h->GetXaxis()->SetRangeUser(-0.4,0.4);
+    //h->Draw();
+    //h->GetXaxis()->SetRangeUser(-0.4,0.4);
     //fxDCB->Draw("SAME");
     frame->Draw();
     cps->Print(Form("Bin_%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
@@ -377,11 +392,11 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
   ptBins_.emplace_back(3000); // Last limit
 
-  int nPoints_ = 11;
-  //if (etaBins_ > 1) nPoints_ = 11;
-  TGraphAsymmErrors* g_ = new TGraphAsymmErrors(nPoints_);
 
-  for(int i = 0; i < nPoints_; ++i){
+  //if (etaBins_ > 1) nPoints_ = 11;
+  TGraphAsymmErrors* g_ = new TGraphAsymmErrors(nPBins);
+
+  for(int i = 0; i < nPBins; ++i){
     Double_t mid = (ptBins_[i]+ptBins_[i+1])/2.;
     Double_t dx = mid - ptBins_[i];
     g_->SetPoint(i,mid,sigmas_[i]);
@@ -389,15 +404,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     //    g_->SetPointError(i,dx,dx,0,0);
   }
 
-  TCanvas* c1_ = new TCanvas("c1","c1",500,500);
-  c1_->cd();
-  g_->Draw();
-  //c1_->Print(Form("%d_%s.png",year,etaBins[etaBins_].c_str()));
   cpt->Print(Form("%d_%s_.png",year,etaBins[etaBins_].c_str()));
 
   f1->Close();
-
-  delete c1_;
 
   return g_;
 
