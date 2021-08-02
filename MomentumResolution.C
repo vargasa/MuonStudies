@@ -77,10 +77,10 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
   HCutFlow = new TH1D("HCutFlow","",50,0.,50.);  /* Limits are meaningless here */
   fOutput->Add(HCutFlow);
 
-  const Double_t PBins[13] = {
+  const Double_t PBins[12] = {
     52.,72.,100.,150.,200.,
-    300.,400.,600.,800.,1200.,
-    1800.,2600.,3600.
+    300.,450.,800.,1200.,
+    1600.,2000.,3000.
   };
 
   const Double_t PBins_trackerHighPt[11] = {
@@ -126,12 +126,12 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
     0.93,0.94,0.95,0.96,0.97,0.98,
   };
 
-  HPs = new TH3F("HPs","Momentum;PtGen;Pt;TunePPt",12,PBins,12,PBins,12,PBins);
+  HPs = new TH3F("HPs","Momentum;PtGen;Pt;TunePPt",11,PBins,11,PBins,11,PBins);
   fOutput->Add(HPs);
 
   HPResB_T = new TH3F("HPResB_T","Momentum Resolution;P;Pt;PRes",
-                      10,PBins_trackerHighPt,
-                      10,PBins_trackerHighPt,
+                      11,PBins,
+                      11,PBins,
                       197,PResBins);
   HPResE_T = static_cast<TH3F*>(HPResB_T->Clone());
   HPResE_T->SetName("HPResE_T");
@@ -142,8 +142,8 @@ void MomentumResolution::SlaveBegin(TTree *tree) {
   HPtResE_T->SetName("HPtResE_T");
 
   HPResB_G = new TH3F("HPResB_G","Momentum Resolution;P;Pt;PRes",
-                      12,PBins,
-                      12,PBins,
+                      11,PBins,
+                      11,PBins,
                       197,PResBins);
   HPResB_G->SetName("HPResB_G");
   HPResE_G = static_cast<TH3F*>(HPResB_G->Clone());
@@ -471,7 +471,7 @@ void MomentumResolution::Terminate() {
   const Int_t Year_ = 2018;
 #endif
 
-  std::unique_ptr<TFile> fOut(TFile::Open("MuonResolution_PtHistos.root","UPDATE"));
+  std::unique_ptr<TFile> fOut(TFile::Open("MuonResolution_SameBins.root","UPDATE"));
   fOut->mkdir(Form("%d",Year_));
   fOut->mkdir(Form("%d/%s",Year_,SampleName.Data()));
   fOut->cd(Form("%d/%s",Year_,SampleName.Data()));

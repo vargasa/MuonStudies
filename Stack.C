@@ -79,7 +79,8 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
   std::cout << "=============\t" << year << "\t=============\t" << etaBins_ << "\t=============\n";
 
-  TFile* f1 = TFile::Open("MuonResolution_PtHistos.root","READ");
+  TFile* f1 = TFile::Open("MuonResolution_SameBins.root","READ");
+  TFile* fOut = TFile::Open("DebugHistos.root","UPDATE");
 
   std::vector<std::string> etaBins = {
     "HPResB_G", "HPResE_G",
@@ -171,8 +172,8 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
   Int_t nParams = 7;
 
-  Double_t xmin = -0.35;
-  Double_t xmax = 0.35;
+  Double_t xmin = -0.3;
+  Double_t xmax = 0.3;
 
   std::vector<Double_t> sigmas_;
   std::vector<Double_t> ptBins_;
@@ -200,7 +201,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
         if( j == initialBin ) {
           hMerged = static_cast<TH1D*>(h1->Clone());
         } else {
-          if (h1->GetEntries()>2e2)
+          if (h1->GetEntries()>1e2)
             hMerged->Add(h1,luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
         }
       }
@@ -213,6 +214,23 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
   auto GetModifiedXSec = [] (const double& xnorm, const double& xsec) {
     const double factor = 1/xnorm;
     return factor*xsec;
+  };
+
+  auto GetHistoLimits = [] (const TH1* h) {
+
+    float lowerLimit = 0;
+    float upperLimit = 0;
+    for (int i = h->GetNbinsX(); i != 0; --i) {
+      if ( h->GetBinContent(i) != 0. )
+        lowerLimit = h->GetBinContent(i);
+    }
+    for (int i = 1; i <= h->GetNbinsX(); ++i) {
+      if ( h->GetBinContent(i) != 0. )
+        upperLimit = h->GetBinContent(i);
+    }
+
+    return std::make_pair(lowerLimit, upperLimit);
+
   };
 
 
@@ -230,8 +248,6 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     Double_t ptBinMin = 0;
     Double_t ptBinMax = 0.;
 
-    Bool_t flipBit = true;
-    double xnorm = -1.;
     for(int i = 0; i < samples[year].size(); ++i){
       std::cout << Form("%d/%s/%s\n",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str()) ;
       auto h3 =
@@ -241,10 +257,6 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
       cps->cd(j);
       auto h1 =
         static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][i].first.c_str(),j),j));
-      if (h1->GetEntries() > 1e2 and flipBit) {
-        xnorm = samples[year][i].second;
-        flipBit = false;
-      }
       TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
       Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
       ptBinMin = h2->GetXaxis()->GetBinLowEdge(j);
@@ -259,11 +271,11 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
       h1->Draw("HIST");
       hs->Add(h1,"F");
       if( h1->GetEntries() > 1e2){
-	if (xnorm<0.) throw;
         hs_->Add(h1,"F");
       }
     }
     ptBins_.emplace_back(ptBinMin);
+
 
     cps->cd(11);
     hs->Draw("HIST");
@@ -271,20 +283,30 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     hs_->Draw("HIST");
     TH1* h = static_cast<TH1D*>(hs_->GetStack()->Last());
     h->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-    if (ptBinMin == 72.) {
+
+
+
+    if (etaBins_ == 0 and ptBinMin == 800.){
       xmin = -0.2;
       xmax = 0.2;
+    } else if (etaBins_ == 0 and ptBinMin == 1.2e3){
+      xmin = -0.2;
+      xmax = 0.2;
+    } else if (etaBins_ == 0 and ptBinMin == 72.){
+      xmin = -0.1;
+      xmax = 0.1;
     } else {
-      xmin = -0.35;
-      xmax = 0.35;
+      xmin = -0.3;
+      xmax = 0.3;
     }
 
 
-    TF1 *fxDCB = new TF1(Form("fxDCB_%d_%s",year,etaBins[etaBins_].c_str()),
+    TF1 *fxDCB = new TF1(Form("fxDCB_%d_%s_%.0f",year,etaBins[etaBins_].c_str(),ptBinMin),
                          DSCB, xmin, xmax, nParams);
     fxDCB->SetParNames("#alpha_{low}","#alpha_{high}","n_{low}", "n_{high}", "#mu", "#sigma", "N");
     fxDCB->SetParameters(1., 1., 10, 10, h->GetMean(), h->GetRMS(), h->GetMaximum());
     fxDCB->SetParLimits(5,prevSigma_,0.2); // Require higher sigma for higher Pt
+
 
     h->SetName(Form("%d_%s_%d",year,etaBins[etaBins_].c_str(),j));
 
@@ -294,6 +316,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
     Double_t errorTmp = fxDCB->GetParError(5);
     Double_t sigmaTmp = fxDCB->GetParameter(5);
+
     int counter = 1;
     const double goodError = 0.02;
 
@@ -318,11 +341,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
     while( errorTmp > goodError) {
       Fit();
-
     }
 
     if( isnan(errorTmp) ) {
-      fitOption = "QME";
       Fit();
       counter = 1;
       while( errorTmp > goodError){
@@ -347,14 +368,14 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
     cpt->cd(j);
     //hs_->Draw("HIST");
-    //h->Draw();
-    //h->GetXaxis()->SetRangeUser(-0.4,0.4);
+    h->Draw();
+    h->GetXaxis()->SetRangeUser(-0.4,0.4);
     //fxDCB->Draw("SAME");
     frame->Draw();
-    cps->Print(Form("%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
+    cps->Print(Form("Bin_%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
   }
 
-  ptBins_.emplace_back(3600); // Last limit
+  ptBins_.emplace_back(3000); // Last limit
 
   int nPoints_ = 11;
   //if (etaBins_ > 1) nPoints_ = 11;
@@ -371,8 +392,10 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
   TCanvas* c1_ = new TCanvas("c1","c1",500,500);
   c1_->cd();
   g_->Draw();
-  c1_->Print(Form("%d_%s.png",year,etaBins[etaBins_].c_str()));
+  //c1_->Print(Form("%d_%s.png",year,etaBins[etaBins_].c_str()));
   cpt->Print(Form("%d_%s_.png",year,etaBins[etaBins_].c_str()));
+
+  f1->Close();
 
   delete c1_;
 
@@ -469,7 +492,7 @@ int Stack() {
     gPad->SetBottomMargin(0.15);
     mgG->Draw("AP");
     lG->Draw();
-    mgG->GetXaxis()->SetRangeUser(0,3600);
+    mgG->GetXaxis()->SetRangeUser(0,3000);
     mgG->GetYaxis()->SetRangeUser(0.,0.18);
 
     c->cd((yr%2015)+3);
@@ -477,7 +500,7 @@ int Stack() {
     gPad->SetBottomMargin(0.15);
     mgT->Draw("AP");
     lT->Draw();
-    mgT->GetXaxis()->SetRangeUser(0,3600);
+    mgT->GetXaxis()->SetRangeUser(0,3000);
     mgT->GetYaxis()->SetRangeUser(0.,0.18);
   }
 
