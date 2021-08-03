@@ -181,6 +181,24 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
   Double_t prevSigma_ = 0.01; // Bottom limit 1%
 
+  auto GetHisto = [&] (const int& nSample, const int& nPbin, const int& nEtaBin){
+    auto h3 =
+      static_cast<TH3D*>(f1->Get(Form("%d/%s/%s",year,samples[year][nSample].first.c_str(),etaBins[nEtaBin].c_str())));
+    auto h2 =
+      static_cast<TH2D*>(h3->Project3D("zx"));
+    auto h1 =
+      static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][nSample].first.c_str(),nPbin),nPbin));
+    TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(nSample).c_str())));
+    Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
+    h1->Scale(luminosity[year]*1e3*samples[year][nSample].second/sumGenWeight);
+
+    float xmin = h2->GetXaxis()->GetBinLowEdge(nPbin);
+    float xmax = h2->GetXaxis()->GetBinLowEdge(nPbin+1);
+
+    return std::make_pair(h1,std::make_pair(xmin,xmax));
+  };
+
+
 
   auto GetMergedHisto = [&] (const int& initialBin, const int& endBin){
     THStack* hsMerged = new THStack(Form("hsMerged_%d_%d_%d",etaBins_,initialBin,endBin),"hsMerged");
@@ -196,13 +214,14 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
         pBinMax = h2->GetXaxis()->GetBinLowEdge(endBin+1);
         auto h1 =
           static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][i].first.c_str(),j),j));
-        TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
+
+        TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(i).c_str())));
         Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
         if( j == initialBin ) {
           hMerged = static_cast<TH1D*>(h1->Clone());
         } else {
           if (h1->GetEntries()>1e2)
-            hMerged->Add(h1/*,luminosity[year]*1e3*samples[year][i].second/sumGenWeight*/);
+            hMerged->Add(h1,luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
         }
       }
     }
@@ -249,22 +268,17 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     Double_t ptBinMax = 0.;
 
     for(int i = 0; i < samples[year].size(); ++i){
+
       std::cout << Form("%d/%s/%s\n",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str()) ;
-      auto h3 =
-        static_cast<TH3D*>(f1->Get(Form("%d/%s/%s",year,samples[year][i].first.c_str(),etaBins[etaBins_].c_str())));
-      auto h2 =
-        static_cast<TH2D*>(h3->Project3D("zx"));
-      cps->cd(j);
-      auto h1 =
-        static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][i].first.c_str(),j),j));
-      TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(0).c_str())));
-      Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
-      ptBinMin = h2->GetXaxis()->GetBinLowEdge(j);
-      ptBinMax = h2->GetXaxis()->GetBinLowEdge(j+1);
+
+      std::pair<TH1D*,std::pair<float,float>> hpack = GetHisto(i,j,etaBins_);
+
+      auto h1 = hpack.first ;
+
+      ptBinMin = hpack.second.first;
+      ptBinMax = hpack.second.second;
       hs->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
       hs_->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-      if (year == 2016)
-        h1->Scale(luminosity[year]*1e3*samples[year][i].second/sumGenWeight);
       h1->SetTitle(Form("%s;P Resolution;EventCount * #sigma",samples[year][i].first.c_str()));
       //h1->GetYaxis()->SetRangeUser(0.,yMax);
       h1->SetFillColor(i+1);
@@ -302,9 +316,12 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     } else if (etaBins_ == 0 and ptBinMin == 72.) {
       xmin = -0.1;
       xmax = 0.1;
-    } else if (etaBins_ == 3 and ptBinMin == 52.) {
+    } else if (etaBins_ == 3 and ptBinMin < 73.) {
       xmin = -0.2;
       xmax = 0.2;
+    } else if (year == 2018 and etaBins_ == 3 and ptBinMin == 800) {
+      xmin = -0.35;
+      xmax = 0.35;
     } else {
       xmin = -0.3;
       xmax = 0.3;
