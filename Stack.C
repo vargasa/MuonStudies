@@ -75,12 +75,11 @@ double DSCB(double *x, double *par){
 
 }
 
-TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
+TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_, bool mergeTracker = false) {
 
   std::cout << "=============\t" << year << "\t=============\t" << etaBins_ << "\t=============\n";
 
   TFile* f1 = TFile::Open("MuonResolution_SameBins.root","READ");
-  TFile* fOut = TFile::Open("DebugHistos.root","UPDATE");
 
   std::vector<std::string> etaBins = {
     "HPResB_G", "HPResE_G",
@@ -102,10 +101,12 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
   std::pair<float,float> MuonE = { 1.2, 2.4 };
 
   std::vector<std::string> titleEtaBins = {
-    Form("%.1f <=|#eta|<= %.1f [globalHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonB.first, MuonB.second),  //B_G
-    Form("%.1f <|#eta|<= %.1f [globalHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonE.first, MuonE.second),   //E_G
-    Form("%.1f <=|#eta|<= %.1f [trackerHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonB.first, MuonB.second), //B_T
-    Form("%.1f <|#eta|<= %.1f [trackerHighPtId]; (1/p-1/p^{GEN})/(1/p^{GEN}); Event Count", MuonE.first, MuonE.second),  //O_T
+    Form("%.1f <=|#eta|<= %.1f [globalHighPtId]", MuonB.first, MuonB.second),  //B_G
+    Form("%.1f <|#eta|<= %.1f [globalHighPtId]", MuonE.first, MuonE.second),   //E_G
+    Form("%.1f <=|#eta|<= %.1f [trackerHighPtId]", MuonB.first, MuonB.second), //B_T
+    Form("%.1f <|#eta|<= %.1f [trackerHighPtId]", MuonE.first, MuonE.second),  //O_T
+    Form("%.1f <=|#eta|<= %.1f [global + trackerHighPtId]", MuonB.first, MuonB.second), //B_G
+    Form("%.1f <|#eta|<= %.1f [global + trackerHighPtId]", MuonE.first, MuonE.second),  //E_G
   };
 
   std::unordered_map<int,std::vector<std::pair<std::string,Double_t>>> samples =
@@ -187,7 +188,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     auto h2 =
       static_cast<TH2D*>(h3->Project3D("zx"));
     auto h1 =
-      static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][nSample].first.c_str(),nPbin),nPbin));
+      static_cast<TH1D*>(h2->ProjectionY(Form("%s_h_%d",samples[year][nSample].first.c_str(),nPbin),nPbin)->Clone());
     TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%s/HCutFlow",rhpath(nSample).c_str())));
     Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
     h1->Scale(luminosity[year]*1e3*samples[year][nSample].second/sumGenWeight);
@@ -277,9 +278,21 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
 
       ptBinMin = hpack.second.first;
       ptBinMax = hpack.second.second;
-      hs->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-      hs_->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
-      h1->SetTitle(Form("%s;P Resolution;EventCount * #sigma",samples[year][i].first.c_str()));
+
+      std::string sTitle = Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year);
+
+      if (mergeTracker and etaBins_ < 2) {
+        std::pair<TH1D*,std::pair<float,float>> hpackTracker = GetHisto(i,j,etaBins_ + 2);
+        auto hh = hpackTracker.first;
+        bool success = h1->Add(hh);
+        if(!success) throw;
+        sTitle = Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_ + 4].c_str(),year);
+      }
+
+
+      hs->SetTitle(sTitle.c_str());
+      hs_->SetTitle(sTitle.c_str());
+      h1->SetTitle(Form("%s;P Resolution;EventCount",samples[year][i].first.c_str()));
       //h1->GetYaxis()->SetRangeUser(0.,yMax);
       h1->SetFillColor(i+1);
       cps->cd(i+1);
@@ -291,7 +304,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     }
     ptBins_.emplace_back(ptBinMin);
 
-    if( etaBins_ > 1 and ptBinMin > 700){
+    if( !mergeTracker and etaBins_ > 1 and ptBinMin > 700) {
       const int nPBinsTmp = nPBins;
       hs_ = GetMergedHisto(j,nPBins);
       nPBins = j;
@@ -305,7 +318,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     cps->cd(12);
     hs_->Draw("HIST");
     TH1* h = static_cast<TH1D*>(hs_->GetStack()->Last());
-    h->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
+    //h->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN});Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year));
 
     if (etaBins_ == 0 and ptBinMin == 800.) {
       xmin = -0.2;
@@ -346,7 +359,7 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     Double_t sigmaTmp = fxDCB->GetParameter(5);
 
     int counter = 1;
-    const double goodError = 0.02;
+    const double goodError = 0.011;
 
     auto flipFitOption  = [&] (){
       if(fitOption.compare("QMWL") == 0) {
@@ -384,13 +397,15 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     sigmaErrors_.emplace_back(fxDCB->GetParError(5));
     fxDCB->Draw("SAME");
 
-
     RooRealVar pres("pres","P Residual",xmin,xmax);
     pres.setBins(10000);
     RooAbsPdf* dcb = RooFit::bindPdf(fxDCB,pres);
     RooDataHist dh1("dh1","dh1",pres,h);
-    RooPlot* frame = pres.frame(Title(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN}) [#sigma %.2f];Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year,fxDCB->GetParameter(5))));
-    frame->SetTitle(Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN}) [#sigma %.2f];Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year,fxDCB->GetParameter(5)));
+    std::string sTitle = Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN}) [#sigma %.2f];Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_].c_str(),year,fxDCB->GetParameter(5));
+    if(mergeTracker)
+      sTitle = Form("[%.1f:%.1f] GeV %s [%d];(1/p-1/p^{GEN})/(1/p^{GEN}) [#sigma %.2f];Event Count",ptBinMin,ptBinMax,titleEtaBins[etaBins_+4].c_str(),year,fxDCB->GetParameter(5));
+    RooPlot* frame = pres.frame(Title(sTitle.c_str()));
+    frame->SetTitle(sTitle.c_str());
 
     dcb->fitTo(dh1,SumW2Error(true));
     dh1.plotOn(frame);
@@ -404,7 +419,10 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     //h->GetXaxis()->SetRangeUser(-0.4,0.4);
     //fxDCB->Draw("SAME");
     frame->Draw();
-    cps->Print(Form("Bin_%d_%s_%.0f.png",year,etaBins[etaBins_].c_str(),ptBinMin));
+    std::string filename = Form("Bin_%d_%s_%.0f_.png",year,etaBins[etaBins_].c_str(),ptBinMin);
+    if(mergeTracker)
+      filename = Form("Bin_%d_%s_MergedIDs_%.0f_.png",year,etaBins[etaBins_].c_str(),ptBinMin);
+    cps->Print(filename.c_str());
   }
 
   ptBins_.emplace_back(3000); // Last limit
@@ -421,7 +439,10 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_) {
     //    g_->SetPointError(i,dx,dx,0,0);
   }
 
-  cpt->Print(Form("%d_%s_.png",year,etaBins[etaBins_].c_str()));
+  std::string filename = Form("%d_%s_.png",year,etaBins[etaBins_].c_str());
+  if(mergeTracker)
+    filename = Form("%d_%s_Merged_.png",year,etaBins[etaBins_].c_str());
+  cpt->Print(filename.c_str());
 
   f1->Close();
 
@@ -433,8 +454,8 @@ int Stack() {
 
   std::vector<int> etaBins = { 0, 1, 2, 3};
 
-  TCanvas* c = new TCanvas("c","c",3*500,2*500);
-  c->Divide(3,2);
+  TCanvas* c = new TCanvas("c","c",3*500,3*500);
+  c->Divide(3,3);
 
   TCanvas* cRatio = new TCanvas("cRatio","cRatio",3*500,1*500);
   cRatio->Divide(3,1);
@@ -449,6 +470,8 @@ int Stack() {
     Form("%.1f <|#eta|<= %.1f [globalHighPtId]; P [GeV]; Resolution [%%]", MuonE.first, MuonE.second),
     Form("%.1f <=|#eta|<= %.1f [trackerHighPtId]; P [GeV]; Resolution [%%]", MuonB.first, MuonB.second),
     Form("%.1f <|#eta|<= %.1f [trackerHighPtId]; P [GeV]; Resolution [%%]", MuonE.first, MuonE.second),
+    Form("%.1f <=|#eta|<= %.1f [global+trackerHighPtId]; P [GeV]; Resolution [%%]", MuonB.first, MuonB.second),
+    Form("%.1f <|#eta|<= %.1f [global+trackerHighPtId]; P [GeV]; Resolution [%%]", MuonE.first, MuonE.second),
   };
 
   std::vector<Int_t> colorEtaBins = {
@@ -472,14 +495,22 @@ int Stack() {
     mgT->SetName(Form("mgT_%d",yr));
     mgT->SetTitle(Form("P Resolution [%d] [trackerHighPt]; P Reco; P Resolution [#sigma]",yr));
 
+    TMultiGraph *mgGT = new TMultiGraph();
+    mgGT->SetName(Form("mgGT_%d",yr));
+    mgGT->SetTitle(Form("P Resolution [%d] [global+trackerHighPt]; P Reco; P Resolution [#sigma]",yr));
+
     TLegend *lG = new TLegend(0.7,0.2,0.95,0.3);
     lG->SetName(Form("lG_%d",yr));
 
     TLegend *lT = new TLegend(0.7,0.2,0.95,0.3);
     lG->SetName(Form("lT_%d",yr));
 
+    TLegend *lGT = new TLegend(0.7,0.2,0.95,0.3);
+    lGT->SetName(Form("lGT_%d",yr));
+
     TGraph* gRatioLegacy;
     TGraph* gNew;
+    TGraph* gMergedId;
 
     for(auto etaBins_: etaBins){
       TGraphAsymmErrors *g = GetResolutionGraph(yr,etaBins_);
@@ -488,7 +519,13 @@ int Stack() {
       g->SetMarkerColor(colorEtaBins[etaBins_]);
       g->SetMarkerStyle(23);
       if (etaBins_ < 2){
-	if (etaBins_ == 0) gNew = g;
+        TGraphAsymmErrors *gg = GetResolutionGraph(yr,etaBins_,true);
+        gg->SetLineColor(colorEtaBins[etaBins_]);
+        gg->SetMarkerColor(colorEtaBins[etaBins_]);
+        gg->SetMarkerStyle(23);
+        lGT->AddEntry(gg,legendEtaBins[etaBins_].c_str());
+        mgGT->Add(gg,"P");
+        if (etaBins_ == 0) gNew = g;
         lG->AddEntry(g,legendEtaBins[etaBins_].c_str());
         mgG->Add(g,"P");
       } else {
@@ -528,6 +565,14 @@ int Stack() {
     lT->Draw();
     mgT->GetXaxis()->SetRangeUser(0,3000);
     mgT->GetYaxis()->SetRangeUser(0.,0.18);
+
+    c->cd((yr%2015)+6);
+    gPad->SetLeftMargin(0.15);
+    gPad->SetBottomMargin(0.15);
+    mgGT->Draw("AP");
+    lGT->Draw();
+    mgGT->GetXaxis()->SetRangeUser(0,3000);
+    mgGT->GetYaxis()->SetRangeUser(0.,0.18);
   }
 
   c->Print(Form("ResolutionMeasurement.png"));
