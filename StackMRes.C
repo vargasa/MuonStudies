@@ -33,6 +33,8 @@ double DSCB(double *x, double *par){
 
 TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false){
 
+  std::cout << Form("\n\n=============== %d %s ==============\n\n", year, hname.c_str());
+
   TFile *f1 = TFile::Open("MuonStudies_ZPeakResolution.root");
 
   int nBins = 7;
@@ -43,17 +45,72 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   TCanvas* cPull = new TCanvas("cPull","cPull",4*500,2*500);
   cPull->Divide(4,2);
 
-  std::string histopath = Form("%d/DYJetsToMuMu_M-50_Zpt-150toInf_TuneCP5_13TeV-madgraphMLM_pdfwgt_F-pythia8/%s",year,hname.c_str());
+  std::unordered_map<int, float> luminosity = {
+    {2016, 35.92},
+    {2017, 41.43},
+    {2018, 59.74}
+  };
+
+  std::unordered_map<int,std::vector<std::pair<std::string,Double_t>>> samples =
+    {
+      {
+        2016,
+        {
+          {"DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 5.128e+03},
+          {"DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 9.556e+02},
+          {"DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 3.600e+02},
+        },
+      },
+      {
+        2017,
+        {
+          {"DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 5.129e+03},
+          {"DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 9.544e+02},
+          {"DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 3.594e+02},
+        }
+      },
+      {
+        2018,
+        {
+          {"DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 5.125e+03},
+          {"DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 9.514e+02},
+          {"DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 3.586e+02},
+        }
+      }
+    };
+
+  auto GetLumiFactor = [&](const int& year_, const std::string& sample) {
+    TH1F* hCutFlow = static_cast<TH1F*>(f1->Get(Form("%d/%s/HCutFlow",year_,sample.c_str())));
+    Double_t sumGenWeight = hCutFlow->GetBinContent(hCutFlow->GetXaxis()->FindBin("genWeight"));
+    return luminosity[year_]*1e3/sumGenWeight;
+  };
+
+  std::string histopath = "";
+
   if(isData)
     histopath = Form("%d/ULSingleMuon/%s",year,hname.c_str());
 
   std::cout << histopath << "\n";
-  
+
   std::vector<Float_t> sigmas;
   std::vector<Float_t> sigmaErrors;
   std::vector<Float_t> ptBins;
 
-  TH2F* h2 = static_cast<TH2F*>(f1->Get(histopath.c_str()));
+
+  TH2F* h2;
+
+  for(auto sample: samples[year]){
+    if(isData) break;
+    if(histopath.size()==0){
+      histopath = Form("%d/%s/%s",year,sample.first.c_str(),hname.c_str());
+      h2 = static_cast<TH2F*>(f1->Get(histopath.c_str())->Clone());
+      h2->SetName(histopath.c_str());
+      //h2->Scale(sample.second*GetLumiFactor(year,sample.first));
+    } else {
+      h2->Add(static_cast<TH2F*>(f1->Get(histopath.c_str()))/*,sample.second*GetLumiFactor(year,sample.first)*/);
+    }
+    std::clog << Form("Adding sample:\t%s\n",sample.first.c_str());
+  }
 
   Double_t YLimit = 0.;
 
