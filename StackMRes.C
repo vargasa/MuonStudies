@@ -114,6 +114,9 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 
   TH2F* h2;
 
+  if(isData)
+    h2 = static_cast<TH2F*>(f1->Get(histopath.c_str())->Clone());
+
   for(auto sample: samples[year]){
     if(isData) break; // No need to stack up for data
     if(histopath.size()==0){
