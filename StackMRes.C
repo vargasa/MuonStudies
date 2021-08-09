@@ -56,25 +56,40 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
       {
         2016,
         {
-          {"DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 5.128e+03},
-          {"DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 9.556e+02},
-          {"DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 3.600e+02},
+          {"DYJetsToLL_M-50_HT-70to100_TuneCUETP8M1_13TeV-madgraphMLM-pythia8", 1.702e+02},
+          {"DYJetsToLL_M-50_HT-100to200_TuneCUETP8M1_13TeV-madgraphMLM-pythia8", 1.475e+02},
+          {"DYJetsToLL_M-50_HT-200to400_TuneCUETP8M1_13TeV-madgraphMLM-pythia8", 4.104e+01},
+          {"DYJetsToLL_M-50_HT-400to600_TuneCUETP8M1_13TeV-madgraphMLM-pythia8", 5.669e+00},
+          {"DYJetsToLL_M-50_HT-600to800_TuneCUETP8M1_13TeV-madgraphMLM-pythia8",1.360e+00},
+          {"DYJetsToLL_M-50_HT-800to1200_TuneCUETP8M1_13TeV-madgraphMLM-pythia8",6.227e-01}
+          {"DYJetsToLL_M-50_HT-1200to2500_TuneCUETP8M1_13TeV-madgraphMLM-pythia8", 1.512e-01},
+          {"DYJetsToLL_M-50_HT-2500toInf_TuneCUETP8M1_13TeV-madgraphMLM-pythia8", 3.659e-03},
         },
       },
       {
         2017,
         {
-          {"DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 5.129e+03},
-          {"DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 9.544e+02},
-          {"DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 3.594e+02},
+          {"DYJetsToLL_M-50_HT-70to100_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.395e+02},
+          {"DYJetsToLL_M-50_HT-100to200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.404e+02},
+          {"DYJetsToLL_M-50_HT-200to400_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 3.836e+01},
+          {"DYJetsToLL_M-50_HT-400to600_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 5.220e+00},
+          {"DYJetsToLL_M-50_HT-600to800_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.264e+00},
+          {"DYJetsToLL_M-50_HT-800to1200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 5.685e-01},
+          {"DYJetsToLL_M-50_HT-1200to2500_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.330e-01},
+          {"DYJetsToLL_M-50_HT-2500toInf_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 2.981e-03},
         }
       },
       {
         2018,
         {
-          {"DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 5.125e+03},
-          {"DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 9.514e+02},
-          {"DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8", 3.586e+02},
+          {"DYJetsToLL_M-50_HT-70to100_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.398e+02},
+          {"DYJetsToLL_M-50_HT-100to200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.406e+02},
+          {"DYJetsToLL_M-50_HT-200to400_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 3.840e+01},
+          {"DYJetsToLL_M-50_HT-400to600_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 5.213e+00},
+          {"DYJetsToLL_M-50_HT-600to800_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.265e+00},
+          {"DYJetsToLL_M-50_HT-800to1200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 5.683e-01},
+          {"DYJetsToLL_M-50_HT-1200to2500_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 1.330e-01},
+          {"DYJetsToLL_M-50_HT-2500toInf_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8", 2.987e-03},
         }
       }
     };
@@ -100,14 +115,14 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   TH2F* h2;
 
   for(auto sample: samples[year]){
-    if(isData) break;
+    if(isData) break; // No need to stack up for data
     if(histopath.size()==0){
       histopath = Form("%d/%s/%s",year,sample.first.c_str(),hname.c_str());
       h2 = static_cast<TH2F*>(f1->Get(histopath.c_str())->Clone());
       h2->SetName(histopath.c_str());
-      //h2->Scale(sample.second*GetLumiFactor(year,sample.first));
+      h2->Scale(sample.second*GetLumiFactor(year,sample.first));
     } else {
-      h2->Add(static_cast<TH2F*>(f1->Get(histopath.c_str()))/*,sample.second*GetLumiFactor(year,sample.first)*/);
+      h2->Add(static_cast<TH2F*>(f1->Get(histopath.c_str())),sample.second*GetLumiFactor(year,sample.first));
     }
     std::clog << Form("Adding sample:\t%s\n",sample.first.c_str());
   }
