@@ -276,18 +276,6 @@ Bool_t ZPeakResolution::CheckMuonPair(const std::pair<UInt_t,UInt_t>& p) const{
   const Float_t farFromPV = 1e-2;
   if (Muon_ip3d[p.first] > farFromPV or Muon_ip3d[p.second] > farFromPV) return kFALSE;
 
-#ifndef CMSDATA
-  const uint ZPdgId = 23;
-
-  if ( GetMother(Muon_genPartIdx[p.first],MuPdgId).second != ZPdgId
-       or
-       GetMother(Muon_genPartIdx[p.second],MuPdgId).second != ZPdgId ){
-
-    return kFALSE;
-
-  };
-#endif
-
   Bool_t GlobalHighPtl1 = (Muon_highPtId[p.first] == 2);
   Bool_t GlobalHighPtl2 = (Muon_highPtId[p.second] == 2);
 
