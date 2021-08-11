@@ -136,6 +136,9 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 
   TH1D *h;
 
+  const float ptLimitLowStats_global = 400.;
+  const float ptLimitLowStats_tracker = 140.;
+
   for(int k = 1; k <= nBins; ++k){
 
     if(breakLoop)
@@ -144,30 +147,31 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     c1->cd(k);
 
     Float_t ptBinLow = h2->GetXaxis()->GetBinLowEdge(k);
-    if( ptBinLow > 500.) break;
-
-    Float_t ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+1);
     ptBins.emplace_back(ptBinLow);
+    Float_t ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+1);
+
     if( k == nBins )
       ptBins.emplace_back(ptBinHigh);
 
-    h = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k));
-    h->SetTitle(Form("%s [%.0f:%.0f];Dimuon Mass [GeV];Event Count", hname.c_str(),ptBinLow, ptBinHigh));
 
-
-    // Merge bins with low statistics
-    if ((hname.find("HMassZPt_A_T") != string::npos
-         or hname.find("HMassZPt_B_T") != string::npos) and ptBinLow == 200.){
-      nBins -= 2; /*Merging three bins into 1*/
-      ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+2);
-      TH1D* hb2 = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k+1));
-      ptBinHigh = h2->GetXaxis()->GetBinLowEdge(k+3);
-      TH1D* hb3 = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k+2));
-      h->Add(hb2);
-      h->Add(hb3);
+    if ( ((hname.find("HMassZPt_A_G") != std::string::npos)
+          or
+          (hname.find("HMassZPt_B_G") != std::string::npos))
+         and ptBinLow > ptLimitLowStats_global ) {
+      nBins = k;
       ptBins.emplace_back(ptBinHigh);
-      breakLoop = true;
+      break;
+    } else if ( ((hname.find("HMassZPt_A_T") != std::string::npos)
+                 or
+                 (hname.find("HMassZPt_B_T") != std::string::npos))
+                and ptBinLow > ptLimitLowStats_tracker) {
+      nBins = k;
+      ptBins.emplace_back(ptBinHigh);
+      break;
     }
+
+    h = static_cast<TH1D*>(h2->ProjectionY(Form("%s_%.0f",hname.c_str(),ptBinHigh),k));
+    h->SetTitle(Form("%s [%.0f:%.0f];Dimuon Mass [GeV];Event Count", hname.c_str(), ptBinLow, ptBinHigh));
 
     if (k == 1)
       YLimit = h->GetMaximum()*1.1;
@@ -243,11 +247,12 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     cPull->Print(Form("%d_%s_Pull_Fits_Data.png",year,hname.c_str()));
   }
 
+  const Int_t nPoints = nBins - 1; // - underflow bin
 
-  TGraphAsymmErrors* g = new TGraphAsymmErrors(nBins);
+  TGraphAsymmErrors* g = new TGraphAsymmErrors(nPoints);
   g->SetName(Form("%d_%s_g",year,hname.c_str()));
 
-  for(int i = 0; i < nBins; ++i){
+  for(int i = 0; i < nPoints; ++i){
     Double_t mid = (ptBins[i]+ptBins[i+1])/2.;
     Double_t dx = mid - ptBins[i];
     g->SetPoint(i,mid,sigmas[i]);
@@ -261,7 +266,6 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   g->SetTitle(Form("Mass Resolution [%d]; Pt; Mass Resolution",year));
   g->Draw("AP");
   g->Print();
-  //g->GetXaxis()->SetRangeUser(0,3100);
   fname = Form("%d_%s.png",year,hname.c_str());
   if(isData)
     fname = Form("%d_%s_Data.png",year,hname.c_str());
@@ -278,6 +282,14 @@ int StackMRes(){
     { "HMassZPt_A_G", "HMassZPt_B_G",
       "HMassZPt_A_T","HMassZPt_B_T" };
 
+  std::unordered_map<std::string,std::string> hTitles = {
+    { "HMassZPt_A_G", "Z Peak Resolution [globalHighPt] [ 0. < |#eta| < 1.2 ]" },
+    { "HMassZPt_B_G", "Z Peak Resolution [globalHighPt] [ 1.2 < |#eta| < 2.4 ]" },
+    { "HMassZPt_A_T", "Z Peak Resolution [trackerHighPt] [ 0. < |#eta| < 1.2 ]" },
+    { "HMassZPt_B_T", "Z Peak Resolution [trackerHighPt] [ 1.2 < |#eta| < 2.4 ]" },
+  };
+
+
   TCanvas* cp1 = new TCanvas("cp1","cp1", 2*500, 2*500);
   cp1->Divide(2,2);
 
@@ -288,7 +300,7 @@ int StackMRes(){
     for(auto hname : Histos2D){
       TMultiGraph *mg = new TMultiGraph();
       mg->SetName(Form("%d_mg_%s",year,hname.c_str()));
-      mg->SetTitle(Form("%s [%d];Pt [GeV];Mass Resolution at Z Peak [GeV]",hname.c_str(),year));
+      mg->SetTitle(Form("%s [%d];Pt [GeV];Mass Resolution at Z Peak [GeV]",hTitles[hname].c_str(),year));
       TGraphAsymmErrors* gmc = plotFits(year, hname);
       gmc->SetLineColor(kRed);
       gmc->SetMarkerColor(kRed);
@@ -297,7 +309,7 @@ int StackMRes(){
       gdata->SetMarkerColor(kBlack);
       mg->Add(gmc,"P");
       mg->Add(gdata,"P");
-      mg->GetYaxis()->SetRangeUser(-1.,10.);
+      mg->GetYaxis()->SetRangeUser(0.,6.);
       cp1->cd(k);
       mg->Draw("AP");
 

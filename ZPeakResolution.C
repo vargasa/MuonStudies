@@ -368,9 +368,9 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
    Double_t w = 1.;
 
-   HMuonPtl1->Fill(lep1.Pt());
-   HMuonPtl2->Fill(lep2.Pt());
-   HMassZ->Fill(zb.M());
+   HMuonPtl1->Fill(lep1.Pt(),*genWeight);
+   HMuonPtl2->Fill(lep2.Pt(),*genWeight);
+   HMassZ->Fill(zb.M(),*genWeight);
 
    HCutFlow->FillS("ZCandidate");
 
@@ -407,11 +407,11 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
      }
 
 #ifndef CMSDATA
-     hl1->Fill(lep1.Pt(), zb.M());
-     hl2->Fill(lep2.Pt(), zb.M());
+     hl1->Fill(lep1.Pt(), zb.M(),*genWeight);
+     hl2->Fill(lep2.Pt(), zb.M(),*genWeight);
 #elif defined(CMSDATA)
-     hl1->Fill(lep1.Pt(), zb.M());
-     hl2->Fill(lep2.Pt(), zb.M());
+     hl1->Fill(lep1.Pt(), zb.M(),*genWeight);
+     hl2->Fill(lep2.Pt(), zb.M(),*genWeight);
 #endif
    };
 

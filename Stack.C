@@ -33,7 +33,7 @@ double GetLegacyResBarrel(const int& year, double p){
 }
 
 TGraph* GetLegacyPlot(const int& year, TGraph* gNew){
-  const int np = gNew->GetN() - 1;
+  const int np = gNew->GetN();
   TGraph* g = new TGraph(np);
   double p,res;
   for (int i = 0; i < np; ++i) {
