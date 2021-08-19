@@ -19,6 +19,11 @@ ZPeakResolution::ZPeakResolution(TTree *)
   HMassZPt_A_T = 0;
   HMassZPt_B_T = 0;
 
+  HMassZPt_A_GG = 0;
+  HMassZPt_A_GT = 0;
+  HMassZPt_B_GG = 0;
+  HMassZPt_B_GT = 0;
+
   HMuonPtl1 = 0;
   HMuonPtl2 = 0;
 
@@ -120,6 +125,17 @@ void ZPeakResolution::SlaveBegin(TTree *tree) {
   HMassZ = new TH1F("HMassZ","", 100,50,10000);
   fOutput->Add(HMassZ);
 
+  HMassZPt_A_GG = new TH3F("HMassZPt_A_GG","", 7, PtBins_MRes, 7, PtBins_MRes, 18, ZMassBins);
+  fOutput->Add(HMassZPt_A_GG);
+
+  HMassZPt_B_GG = new TH3F("HMassZPt_B_GG","", 7, PtBins_MRes, 7, PtBins_MRes, 18, ZMassBins);
+  fOutput->Add(HMassZPt_B_GG);
+
+  HMassZPt_A_GT = new TH3F("HMassZPt_A_GT","", 7, PtBins_MRes, 7, PtBins_MRes, 18, ZMassBins);
+  fOutput->Add(HMassZPt_A_GT);
+
+  HMassZPt_B_GT = new TH3F("HMassZPt_B_GT","", 7, PtBins_MRes, 7, PtBins_MRes, 18, ZMassBins);
+  fOutput->Add(HMassZPt_B_GT);
 
 }
 
@@ -303,8 +319,11 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
   ReadEntry(entry);
 
+  double genWeight = 1.;
+
 #ifndef CMSDATA
-  HCutFlow->Fill("genWeight",*genWeight);
+  genWeight = *genWeight;
+  HCutFlow->Fill("genWeight",genWeight);
 #endif
 
   HCutFlow->FillS("NoCuts");
@@ -368,9 +387,9 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
    Double_t w = 1.;
 
-   HMuonPtl1->Fill(lep1.Pt(),*genWeight);
-   HMuonPtl2->Fill(lep2.Pt(),*genWeight);
-   HMassZ->Fill(zb.M(),*genWeight);
+   HMuonPtl1->Fill(lep1.Pt(), genWeight);
+   HMuonPtl2->Fill(lep2.Pt(), genWeight);
+   HMassZ->Fill(zb.M(), genWeight);
 
    HCutFlow->FillS("ZCandidate");
 
@@ -379,7 +398,7 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
      TH2F *hl1, *hl2 = NULL;
 
      std::pair<Float_t,Float_t> etaLimit = {1.2, 2.4 };
-     Int_t globalId = 2;
+     const Int_t globalId = 2;
 
      if( abs(lep1.Eta()) <= etaLimit.first ) { // A
        if(Muon_highPtId[l1] == globalId){
@@ -406,13 +425,27 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
        }
      }
 
-#ifndef CMSDATA
-     hl1->Fill(lep1.Pt(), zb.M(),*genWeight);
-     hl2->Fill(lep2.Pt(), zb.M(),*genWeight);
-#elif defined(CMSDATA)
-     hl1->Fill(lep1.Pt(), zb.M(),*genWeight);
-     hl2->Fill(lep2.Pt(), zb.M(),*genWeight);
-#endif
+
+     hl1->Fill(lep1.Pt(), zb.M(), genWeight);
+     hl2->Fill(lep2.Pt(), zb.M(), genWeight);
+
+     if ( Muon_highPtId[l1] == globalId
+          and Muon_highPtId[l2] == globalId ) {
+       if ( abs(lep1.Eta()) > etaLimit.first and
+            abs(lep1.Eta()) <= etaLimit.second ) {
+         HMassZPt_B_GG->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+       } else {
+         HMassZPt_A_GG->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+       }
+     } else {
+       if ( abs(lep1.Eta()) > etaLimit.first and
+            abs(lep1.Eta()) <= etaLimit.second ) {
+         HMassZPt_B_GT->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+       } else {
+         HMassZPt_A_GT->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+       }
+     }
+
    };
 
 
