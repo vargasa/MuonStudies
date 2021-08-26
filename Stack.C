@@ -454,6 +454,8 @@ int Stack() {
 
   std::vector<int> etaBins = { 0, 1, 2, 3};
 
+  TFile* fOut = TFile::Open("SummaryPlots.root","UPDATE");
+
   TCanvas* c = new TCanvas("c","c",3*500,3*500);
   c->Divide(3,3);
 
@@ -485,6 +487,33 @@ int Stack() {
     Form("%.1f <|#eta|<= %.1f", MuonE.first, MuonE.second),
   };
 
+  auto FitToP4 = [&] (TGraph* gr, const int yr, const int etaBins_){
+    gr->SetName(Form("MResolution_%d_%d",yr,etaBins_));
+    std::string fxName = Form("p4_%d_%d",yr,etaBins_);
+    TF1 *p4 = new TF1(fxName.c_str(),"pol4",53,2500);
+    p4->SetParameters(0.016995688776817,
+                      0.000083569126602,
+                      0.000000002611754,
+                      -0.000000000023200,
+                      0.000000000000008);
+    p4->SetParLimits(0,-0.1,0.1);
+    p4->SetParLimits(1,-0.1,0.1);
+    p4->SetParLimits(2,-0.1,0.1);
+    p4->SetParLimits(3,-0.1,0.1);
+    p4->SetParLimits(4,-0.1,0.1);
+
+    for(int i = 0; i<8; ++i){
+      gr->Fit(fxName.c_str(),"MWRE");
+    }
+
+    fOut->cd();
+    p4->Write();
+    gr->Write();
+    p4->Print();
+
+    return p4;
+  };
+
   for(auto yr: Years){
 
     TMultiGraph *mgG = new TMultiGraph();
@@ -514,12 +543,13 @@ int Stack() {
 
     for(auto etaBins_: etaBins){
       TGraphAsymmErrors *g = GetResolutionGraph(yr,etaBins_);
-      g->Print();
+      FitToP4(g,yr,etaBins_);
       g->SetLineColor(colorEtaBins[etaBins_]);
       g->SetMarkerColor(colorEtaBins[etaBins_]);
       g->SetMarkerStyle(23);
-      if (etaBins_ < 2){
+      if(etaBins_ < 2){
         TGraphAsymmErrors *gg = GetResolutionGraph(yr,etaBins_,true);
+	FitToP4(gg,yr,etaBins_);
         gg->SetLineColor(colorEtaBins[etaBins_]);
         gg->SetMarkerColor(colorEtaBins[etaBins_]);
         gg->SetMarkerStyle(23);
