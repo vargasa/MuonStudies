@@ -290,6 +290,44 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 
 int StackMRes(){
 
+  std::function<TH1*(TGraphAsymmErrors*)>
+    convertToHisto = [] (TGraphAsymmErrors* g) {
+
+      const int nPoints = g->GetN();
+
+      Double_t* x = g->GetX();
+      Double_t* y = g->GetY();
+
+      std::vector<double> xBins;
+      std::vector<double> values;
+      std::vector<double> errors;
+      for(int i = 0; i < nPoints; ++i){
+        xBins.emplace_back(x[i] - g->GetErrorXlow(i));
+        values.emplace_back(y[i]);
+        errors.emplace_back(g->GetErrorYhigh(i));
+        //std::cout << Form("[%d] Bin: %.1f\t%.1f\t%.1f\n",i,xBins[i],values[i],errors[i]);
+      }
+      xBins.emplace_back(x[nPoints-1] + g->GetErrorXhigh(nPoints-1));
+      //std::cout << Form("[%d] Bin: %.1f\n",xBins.size()-1,xBins[xBins.size()-1]);
+      values.emplace_back(y[nPoints]);
+      errors.emplace_back(g->GetErrorYhigh(nPoints));
+
+      TH1F* h = new TH1F(Form("hfr_%s",g->GetName()),"Ratio",nPoints,&xBins[0]);
+
+      for (int i = 0; i < nPoints; ++i) {
+        h->SetBinContent(i+1,values[i]);
+        h->SetBinError(i+1,errors[i]);
+      }
+
+      return h;
+  };
+
+  std::function<TGraphAsymmErrors*(TGraphAsymmErrors*,TGraphAsymmErrors*)>
+    getRatio  = [&] (TGraphAsymmErrors* gNum, TGraphAsymmErrors* gDen){
+      TGraphAsymmErrors* gr = new TGraphAsymmErrors(convertToHisto(gNum),convertToHisto(gDen),"pois");
+      return gr;
+    };
+
   std::vector<std::string> Histos2D =
     { "HMassZPt_A_G", "HMassZPt_B_G",
       "HMassZPt_A_T","HMassZPt_B_T" };
@@ -310,6 +348,21 @@ int StackMRes(){
   for(auto year: years){
     Int_t k = 1;
     for(auto hname : Histos2D){
+
+      const Float_t leftMargin = 0.12;
+      const Float_t rightMargin = 0.12;
+      const Float_t topMargin = 0.12;
+      const Float_t bottomMargin = 0.5;
+
+      cp1->cd(k);
+      auto mainPad = new TPad(Form("mainPad_%s",hname.c_str()),"mainPad",0.,0.25,1.,1.);
+      mainPad->Draw();
+      mainPad->SetBottomMargin(1e-3);
+      mainPad->SetLeftMargin(leftMargin);
+      mainPad->SetRightMargin(rightMargin);
+      mainPad->SetTickx();
+      mainPad->SetTicky();
+
       TMultiGraph *mg = new TMultiGraph();
       mg->SetName(Form("%d_mg_%s",year,hname.c_str()));
       mg->SetTitle(Form("%s [%d];Pt [GeV];Mass Resolution at Z Peak [GeV]",hTitles[hname].c_str(),year));
@@ -319,17 +372,50 @@ int StackMRes(){
       TGraphAsymmErrors* gdata = plotFits(year, hname, true);
       gdata->SetLineColor(kBlack);
       gdata->SetMarkerColor(kBlack);
+
+      mainPad->cd();
       mg->Add(gmc,"P");
       mg->Add(gdata,"P");
-      mg->GetYaxis()->SetRangeUser(0.,6.);
-      cp1->cd(k);
       mg->Draw("AP");
+      mg->GetYaxis()->SetRangeUser(0.,6.);
 
       TLegend *l = new TLegend();
       l->SetName(Form("%d",year));
       l->AddEntry(gmc,"MC");
       l->AddEntry(gdata,"Data");
       l->Draw();
+
+      auto subPad = new TPad(Form("subPad_%s",hname.c_str()),"subPad",0.,0.,1.,0.25);
+      subPad->SetLeftMargin(leftMargin);
+      subPad->SetRightMargin(rightMargin);
+      subPad->SetTopMargin(1e-3);
+      subPad->SetBottomMargin(bottomMargin);
+      subPad->SetGrid();
+      subPad->SetFrameLineWidth(1);
+
+      const int font = 43;
+      const float fontSize = 15.;
+      const float labelSize = 0.15;
+      TGraphAsymmErrors* gRatio = getRatio(gdata,gmc);
+      gRatio->GetXaxis()->SetTitleFont(font);
+      gRatio->GetXaxis()->SetTitleSize(fontSize);
+      gRatio->GetXaxis()->SetLabelSize(labelSize);
+      gRatio->GetXaxis()->SetTitleOffset(12.0);
+      gRatio->GetYaxis()->SetTitleOffset(4.0);
+      gRatio->GetYaxis()->SetNdivisions(6,3,0);
+      gRatio->GetYaxis()->SetTitle("Data/MC");
+      gRatio->GetYaxis()->SetTitleFont(font);
+      gRatio->GetYaxis()->SetTitleSize(fontSize);
+      gRatio->GetYaxis()->SetLabelSize(labelSize);
+      gRatio->SetMinimum(0.5);
+      gRatio->SetMaximum(1.5);
+
+
+      cp1->cd(k);
+      subPad->Draw();
+      subPad->cd();
+      gRatio->Draw("AP");
+
       std::cout << k << "\t" << hname << "\n";
       ++k;
     }
