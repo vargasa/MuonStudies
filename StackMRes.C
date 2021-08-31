@@ -175,7 +175,12 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
       break;
     } else if ( ((hname.find("HMassZPt_A_T") != std::string::npos)
                  or
-                 (hname.find("HMassZPt_B_T") != std::string::npos))
+                 (hname.find("HMassZPt_B_T") != std::string::npos)
+                 or
+                 (hname.find("HMassZPt_A_GT") != std::string::npos)
+                 or
+                 (hname.find("HMassZPt_B_GT") != std::string::npos)
+                 )
                 and ptBinLow > ptLimitLowStats_tracker) {
       nBins = k;
       ptBins.emplace_back(ptBinHigh);
@@ -330,18 +335,24 @@ int StackMRes(){
 
   std::vector<std::string> Histos2D =
     { "HMassZPt_A_G", "HMassZPt_B_G",
-      "HMassZPt_A_T","HMassZPt_B_T" };
+      "HMassZPt_A_T","HMassZPt_B_T",
+      "HMassZPt_A_GG_L1","HMassZPt_B_GG_L1",
+      "HMassZPt_A_GT_L1","HMassZPt_B_GT_L1" };
 
   std::unordered_map<std::string,std::string> hTitles = {
     { "HMassZPt_A_G", "Z Peak Resolution [globalHighPt] [ 0. < |#eta| < 1.2 ]" },
     { "HMassZPt_B_G", "Z Peak Resolution [globalHighPt] [ 1.2 < |#eta| < 2.4 ]" },
     { "HMassZPt_A_T", "Z Peak Resolution [trackerHighPt] [ 0. < |#eta| < 1.2 ]" },
     { "HMassZPt_B_T", "Z Peak Resolution [trackerHighPt] [ 1.2 < |#eta| < 2.4 ]" },
+    { "HMassZPt_A_GG_L1", "Z Peak Resolution [global + global] [ 0. < |#eta| < 1.2 ]"},
+    { "HMassZPt_B_GG_L1", "Z Peak Resolution [global + global] [ 1.2 < |#eta| < 2.4 ]"},
+    { "HMassZPt_A_GT_L1", "Z Peak Resolution [global + tracker] [ 0. < |#eta| < 1.2 ]"},
+    { "HMassZPt_B_GT_L1", "Z Peak Resolution [global + tracker] [ 1.2 < |#eta| < 2.4 ]"},
   };
 
 
-  TCanvas* cp1 = new TCanvas("cp1","cp1", 2*500, 2*500);
-  cp1->Divide(2,2);
+  TCanvas* cp1 = new TCanvas("cp1","cp1", 4*500, 2*500);
+  cp1->Divide(4,2);
 
   std::vector<Int_t> years = {2016,2017,2018};
 
