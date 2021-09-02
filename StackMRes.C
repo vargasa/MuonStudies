@@ -213,14 +213,13 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     std::string title = Form("%s [%.0f:%.0f] MC [%d];Pt [GeV];Event Count", hname.c_str(),ptBinLow, ptBinHigh,year);
     if(isData)
       title = Form("%s [%.0f:%.0f] Data [%d];Pt [GeV];Event Count", hname.c_str(),ptBinLow, ptBinHigh,year);
-    
+
     RooPlot* frame = mass->frame(Title(title.c_str()));
     //RooFFTConvPdf* bwdcb = new RooFFTConvPdf("bwdcb","BreitWigner DCB", *mass, *breitW, *dcb);
 
     dh1.plotOn(frame);
 
     //bwdcb->fitTo(dh1);
-    std::cout << "calling fitTo\n";
     RooFitResult* fResult = dcb->fitTo(dh1,Range(MassWindow.first,MassWindow.second),Save(true),Minos(true));
     sigmas.emplace_back(fxDCB->GetParameter(5));
     sigmaErrors.emplace_back(fxDCB->GetParError(5));
@@ -377,12 +376,18 @@ int StackMRes(){
       TMultiGraph *mg = new TMultiGraph();
       mg->SetName(Form("%d_mg_%s",year,hname.c_str()));
       mg->SetTitle(Form("%s [%d];Pt [GeV];Mass Resolution at Z Peak [GeV]",hTitles[hname].c_str(),year));
+
       TGraphAsymmErrors* gmc = plotFits(year, hname);
       gmc->SetLineColor(kRed);
       gmc->SetMarkerColor(kRed);
+      std::cout << Form("GMC Printout %s:\n\n\n",gmc->GetName());
+      gmc->Print();
+
       TGraphAsymmErrors* gdata = plotFits(year, hname, true);
       gdata->SetLineColor(kBlack);
       gdata->SetMarkerColor(kBlack);
+      std::cout << Form("GDATA Printout %s:\n\n\n",gdata->GetName());
+      gdata->Print();
 
       mainPad->cd();
       mg->Add(gmc,"P");

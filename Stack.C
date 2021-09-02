@@ -430,6 +430,9 @@ TGraphAsymmErrors* GetResolutionGraph(const int& year, const int& etaBins_, bool
 
   //if (etaBins_ > 1) nPoints_ = 11;
   TGraphAsymmErrors* g_ = new TGraphAsymmErrors(nPBins);
+  std::string name = Form("%s", etaBins[etaBins_].c_str());
+  if (mergeTracker) name +=  "_MergedTracker_";
+  g_->SetName(name.c_str());
 
   for(int i = 0; i < nPBins; ++i){
     Double_t mid = (ptBins_[i]+ptBins_[i+1])/2.;
@@ -487,31 +490,39 @@ int Stack() {
     Form("%.1f <|#eta|<= %.1f", MuonE.first, MuonE.second),
   };
 
-  auto FitToP4 = [&] (TGraph* gr, const int yr, const int etaBins_){
-    gr->SetName(Form("MResolution_%d_%d",yr,etaBins_));
-    std::string fxName = Form("p4_%d_%d",yr,etaBins_);
-    TF1 *p4 = new TF1(fxName.c_str(),"pol4",53,2500);
-    p4->SetParameters(0.016995688776817,
-                      0.000083569126602,
-                      0.000000002611754,
-                      -0.000000000023200,
-                      0.000000000000008);
-    p4->SetParLimits(0,-0.1,0.1);
-    p4->SetParLimits(1,-0.1,0.1);
-    p4->SetParLimits(2,-0.1,0.1);
-    p4->SetParLimits(3,-0.1,0.1);
-    p4->SetParLimits(4,-0.1,0.1);
-
-    for(int i = 0; i<8; ++i){
-      gr->Fit(fxName.c_str(),"MWRE");
+  auto FitToP2 = [&] (TGraph* gr, const int yr, const int etaBins_){
+    float xmin = 53.;
+    float xmax = 2500.;
+    gr->SetName(Form("%s_MResolution_%d_%d",gr->GetName(),yr,etaBins_));
+    if( (std::string(gr->GetName()).find("HPResB_T") != std::string::npos) or
+	(std::string(gr->GetName()).find("HPResE_T") != std::string::npos)){
+      xmax = 1900.;
     }
+    std::string fxName = Form("p2_%d_%d",yr,etaBins_);
+    TF1 *p2 = new TF1(fxName.c_str(),"pol2",xmin,xmax);
+    p2->SetLineColor(etaBins_+1);
+    p2->SetParameters(0.016995688776817,
+                      0.000083569126602,
+                      0.000000002611754);
+    p2->SetParLimits(0,-0.1,0.1);
+    p2->SetParLimits(1,-0.1,0.1);
+    p2->SetParLimits(2,-0.1,0.1);
+
+    gr->Fit(fxName.c_str(),"QEMRW");
+
+    std::cout << Form("### FitResults : %s ### \n",gr->GetName());
+    p2->Print();
+    for(int i = 0; i < p2->GetNpar(); ++i){
+      std::cout << Form("p[%d]: ",i) << p2->GetParameter(i) << "\n";
+    }
+    std::cout << Form("### End FitResults ###\n");
 
     fOut->cd();
-    p4->Write();
+    p2->Write();
     gr->Write();
-    p4->Print();
+    p2->Print();
 
-    return p4;
+    return p2;
   };
 
   for(auto yr: Years){
@@ -543,13 +554,15 @@ int Stack() {
 
     for(auto etaBins_: etaBins){
       TGraphAsymmErrors *g = GetResolutionGraph(yr,etaBins_);
-      FitToP4(g,yr,etaBins_);
+      FitToP2(g,yr,etaBins_);
+      std::cout << Form("FitToP2: %s\n",g->GetName());
       g->SetLineColor(colorEtaBins[etaBins_]);
       g->SetMarkerColor(colorEtaBins[etaBins_]);
       g->SetMarkerStyle(23);
       if(etaBins_ < 2){
         TGraphAsymmErrors *gg = GetResolutionGraph(yr,etaBins_,true);
-	FitToP4(gg,yr,etaBins_);
+        FitToP2(gg,yr,etaBins_);
+        std::cout << Form("FitToP2: %s\n",gg->GetName());
         gg->SetLineColor(colorEtaBins[etaBins_]);
         gg->SetMarkerColor(colorEtaBins[etaBins_]);
         gg->SetMarkerStyle(23);
