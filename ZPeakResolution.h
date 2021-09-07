@@ -120,6 +120,10 @@ class ZPeakResolution : public EventSelection {
   Bool_t PairMu;
   const Int_t MuPdgId = 13;
 
+  TH2F* HDPMassZ_A;
+  TH2F* HDPMassZ_B;
+  TH2F* HDPMassZ_C;
+
   TH2F* HMassZPt_A_G;
   TH2F* HMassZPt_B_G;
   TH2F* HMassZPt_A_T;

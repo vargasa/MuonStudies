@@ -24,6 +24,10 @@ ZPeakResolution::ZPeakResolution(TTree *)
   HMassZPt_B_GG = 0;
   HMassZPt_B_GT = 0;
 
+  HDPMassZ_A = 0;
+  HDPMassZ_B = 0;
+  HDPMassZ_C = 0;
+
   HMuonPtl1 = 0;
   HMuonPtl2 = 0;
 
@@ -121,6 +125,18 @@ void ZPeakResolution::SlaveBegin(TTree *tree) {
   HMassZPt_B_T = static_cast<TH2F*>(HMassZPt_A_G->Clone());
   HMassZPt_B_T->SetName("HMassZPt_B_T");
   fOutput->Add(HMassZPt_B_T);
+
+  HDPMassZ_A = static_cast<TH2F*>(HMassZPt_A_G->Clone());
+  HDPMassZ_A->SetName("HDPMassZ_A");
+  fOutput->Add(HDPMassZ_A);
+
+  HDPMassZ_B = static_cast<TH2F*>(HMassZPt_A_G->Clone());
+  HDPMassZ_B->SetName("HDPMassZ_B");
+  fOutput->Add(HDPMassZ_B);
+
+  HDPMassZ_C = static_cast<TH2F*>(HMassZPt_A_G->Clone());
+  HDPMassZ_C->SetName("HDPMassZ_C");
+  fOutput->Add(HDPMassZ_C);
 
   HMassZ = new TH1F("HMassZ","", 100,50,10000);
   fOutput->Add(HMassZ);
@@ -448,12 +464,34 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
    };
 
+   auto FillHistosDP = [&](TH1* A, TH1* B, TH1* C){
+
+     std::pair<float,float> etaLimits = { 1.2, 1.6 };
+
+     TH1* theOne;
+
+     if ( abs(lep1.Eta()) < etaLimits.first
+          and abs(lep2.Eta()) < etaLimits.first ){
+       theOne = A;
+     } else if ( abs(lep1.Eta()) > etaLimits.first
+                 and abs(lep2.Eta()) < etaLimits.second ){
+       theOne = B;
+     } else if ( abs(lep1.Eta()) > etaLimits.second ){
+       theOne = C;
+     }
+
+     theOne->Fill(lep1.Pt(),zb.M(),genWeight);
+
+   };
+
 
    std::pair<float,float> MassWindow = { 75., 110. };
 
    if ( zb.M() > MassWindow.first and zb.M() < MassWindow.second ){
      FillHistos53(HMassZPt_A_G, HMassZPt_B_G,
                   HMassZPt_A_T, HMassZPt_B_T);
+
+     FillHistosDP(HDPMassZ_A,HDPMassZ_B,HDPMassZ_C);
    }
 
    return kTRUE;
