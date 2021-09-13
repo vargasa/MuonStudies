@@ -1,35 +1,7 @@
 #include "RooTFnBinding.h"
+#include "RooDoubleCB.cc"
 
 using namespace RooFit ;
-
-double DSCB(double *x, double *par){
-
-  double alpha_l = par[0];
-  double alpha_h = par[1];
-  double n_l     = par[2];
-  double n_h     = par[3];
-  double mean    = par[4];
-  double sigma   = par[5];
-  double N       = par[6];
-  double t = (x[0]-mean)/sigma;
-  double result;
-
-  double fAlphaL = alpha_l/n_l;
-  double f2AlphaL = (n_l/alpha_l) - alpha_l - t;
-  double fAlphaH = alpha_h/n_h;
-  double f2AlphaH = (n_h/alpha_h) - alpha_h + t;
-
-  if (-alpha_l <= t && alpha_h >= t){
-    result = exp(-0.5*t*t);
-  } else if (t < -alpha_l) {
-    result = exp(-0.5*alpha_l*alpha_l)*pow(fAlphaL*f2AlphaL, -n_l);
-  } else if (t > alpha_h) {
-    result = exp(-0.5*alpha_h*alpha_h)*pow(fAlphaH*f2AlphaH, -n_h);
-  }
-
-  return N*result;
-
-}
 
 TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false){
 
@@ -151,6 +123,13 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   const float ptLimitLowStats_global = 400.;
   const float ptLimitLowStats_tracker = 140.;
 
+  Double_t prevMean = 0.;
+  Double_t prevWidth = 2.;
+  Double_t prevAlpha1 = 1.;
+  Double_t prevAlpha2 = 1.;
+  Double_t prevn1 = 100.;
+  Double_t prevn2 = 100.;
+
   for(int k = 1; k <= nBins; ++k){
 
     if(breakLoop)
@@ -193,40 +172,71 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     if (k == 1)
       YLimit = h->GetMaximum()*1.1;
 
-    std::pair<float,float> MassWindow = {75., 105};
+    std::pair<float,float> MassWindow = {-150., 150.};
 
     RooRealVar *mass = new RooRealVar("mass","m_{Z} (GeV)",MassWindow.first,MassWindow.second);
     mass->setBins(10000,"cache");
+
     RooRealVar *massZdpg = new RooRealVar("massZdpg","DPG Mass Z", 91.1855, 91.1897);
     RooRealVar *widthZdpg =  new RooRealVar("widthZdpg","DPG Width Z", 2.4929, 2.4975);
     RooBreitWigner *breitW = new RooBreitWigner("breitW","Fit PDF",*mass,*massZdpg,*widthZdpg);
 
-    TF1 *fxDCB = new TF1(Form("fxDCB_%.0f_%s",ptBinLow,hname.c_str()),
-                         DSCB,MassWindow.first, MassWindow.second, 7 /*nParams*/);
-    fxDCB->SetParameters(1., 1., 10, 10, 90., h->GetRMS(), h->GetMaximum()*0.9);
-    fxDCB->SetParLimits(4, 89.,93.);
-    h->Fit(fxDCB,"MB","",MassWindow.first,MassWindow.second);
-    h->Fit(fxDCB,"MB","",MassWindow.first,MassWindow.second);
+    RooRealVar* dcbMean  = new RooRealVar("dcbMean","dcbMean",prevMean, -1., 1.);
+    RooRealVar* dcbWidth = new RooRealVar("dcbWidth","dcbWidth",prevWidth, 0., 4.);
+    RooRealVar* dcbA1 = new RooRealVar("dcbA1","dcbA1",prevAlpha1, -1e3, 1e3);
+    RooRealVar* dcbA2 = new RooRealVar("dcbA2","dcbA2",prevAlpha2, -1e3, 1e3);
+    RooRealVar* dcbn1 = new RooRealVar("dcbn1","dcbn1",prevn1, 0, 1.5e3);
+    RooRealVar* dcbn2 = new RooRealVar("dcbn2","dcbn2",prevn2, 0, 1.5e3);
 
-    RooAbsPdf* dcb = RooFit::bindPdf(fxDCB,*mass);
+    RooDoubleCB* dcb = new RooDoubleCB("dcb","dcb",*mass,*dcbMean, *dcbWidth,
+                                       *dcbA1, *dcbn1, *dcbA2, *dcbn2);
+
     RooDataHist dh1("dh1","dh1",*mass,h);
-    std::string title = Form("%s [%.0f:%.0f] MC [%d];Pt [GeV];Event Count", hname.c_str(),ptBinLow, ptBinHigh,year);
+
+    RooFFTConvPdf* bwdcb = new RooFFTConvPdf("bwdcb","BreitWigner DCB",
+                                             *mass, *dcb, *breitW);
+    bwdcb->setBufferFraction(0);
+    RooFitResult* fit = bwdcb->fitTo(dh1,Range(75.,105.),Save(true),PrintLevel(-1));
+
+    std::cout << "\n\n\n\n\n\n\n\n\n";
+    fit->Print("v");
+    dcb->Print();
+    double sigmaConv =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbWidth"))->getVal();
+    double sigmaErrorConv =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbWidth"))->getError();
+
+    prevMean =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbMean"))->getVal();
+    prevWidth =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbWidth"))->getVal();
+    prevAlpha1 =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbA1"))->getVal();
+    prevAlpha2 =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbA2"))->getVal();
+    prevn1 =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbn1"))->getVal();
+    prevn1 =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbn1"))->getVal();
+
+    std::cout << Form("\n\n\tSigma:%.4f\tError:%.4f\n\n",sigmaConv,sigmaErrorConv);
+    std::cout << "\n\n\n\n\n\n\n\n\n";
+
+    std::string title = Form("%s [%.0f:%.0f] MC [%d];Pt [GeV] #sigma=%.4f;Event Count",
+                             hname.c_str(),ptBinLow, ptBinHigh,year,sigmaConv);
     if(isData)
-      title = Form("%s [%.0f:%.0f] Data [%d];Pt [GeV];Event Count", hname.c_str(),ptBinLow, ptBinHigh,year);
+      title = Form("%s [%.0f:%.0f] Data [%d];Pt [GeV] #sigma=%.4f;Event Count",
+                   hname.c_str(),ptBinLow, ptBinHigh,year,sigmaConv);
 
     RooPlot* frame = mass->frame(Title(title.c_str()));
-    //RooFFTConvPdf* bwdcb = new RooFFTConvPdf("bwdcb","BreitWigner DCB", *mass, *breitW, *dcb);
 
     dh1.plotOn(frame);
 
-    //bwdcb->fitTo(dh1);
-    RooFitResult* fResult = dcb->fitTo(dh1,Range(MassWindow.first,MassWindow.second),Save(true),Minos(true));
-    sigmas.emplace_back(fxDCB->GetParameter(5));
-    sigmaErrors.emplace_back(fxDCB->GetParError(5));
-    //bwdcb->plotOn(frame);
 
-    dcb->plotOn(frame);
-    //h->Draw();
+    bwdcb->plotOn(frame,LineColor(kYellow));
+
+    sigmas.emplace_back(sigmaConv);
+    sigmaErrors.emplace_back(sigmaErrorConv);
 
     RooPlot* framePull = mass->frame(Title(Form("Pull %s",title.c_str())));
     framePull->SetName(Form("fPull_%.0f_%.0f_%s_%d",ptBinLow,ptBinHigh,hname.c_str(),year));
@@ -234,7 +244,7 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     hpull->SetName(Form("hPull_%.0f_%.0f_%s_%d",ptBinLow,ptBinHigh,hname.c_str(),year));
     framePull->addPlotable(hpull,"P");
 
-
+    gStyle->SetOptFit(1111);
     frame->Draw();
     frame->GetYaxis()->SetRangeUser(0.,YLimit);
     if( ptBinLow >= 150. ){
@@ -426,11 +436,13 @@ int StackMRes(){
       gRatio->SetMinimum(0.5);
       gRatio->SetMaximum(1.5);
 
-
       cp1->cd(k);
       subPad->Draw();
       subPad->cd();
       gRatio->Draw("AP");
+      gRatio->GetXaxis()->SetRangeUser(mg->GetXaxis()->GetXmin(),
+				       mg->GetXaxis()->GetXmax());
+
 
       std::cout << k << "\t" << hname << "\n";
       ++k;
