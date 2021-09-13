@@ -335,11 +335,11 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
   ReadEntry(entry);
 
-  double genWeight = 1.;
+  double genW = 1.;
 
 #ifndef CMSDATA
-  genWeight = *genWeight;
-  HCutFlow->Fill("genWeight",genWeight);
+  genW = *genWeight;
+  HCutFlow->Fill("genWeight",genW);
 #endif
 
   HCutFlow->FillS("NoCuts");
@@ -403,9 +403,9 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
    Double_t w = 1.;
 
-   HMuonPtl1->Fill(lep1.Pt(), genWeight);
-   HMuonPtl2->Fill(lep2.Pt(), genWeight);
-   HMassZ->Fill(zb.M(), genWeight);
+   HMuonPtl1->Fill(lep1.Pt(), genW);
+   HMuonPtl2->Fill(lep2.Pt(), genW);
+   HMassZ->Fill(zb.M(), genW);
 
    HCutFlow->FillS("ZCandidate");
 
@@ -442,46 +442,49 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
      }
 
 
-     hl1->Fill(lep1.Pt(), zb.M(), genWeight);
-     hl2->Fill(lep2.Pt(), zb.M(), genWeight);
+     hl1->Fill(lep1.Pt(), zb.M(), genW);
+     hl2->Fill(lep2.Pt(), zb.M(), genW);
 
      if ( Muon_highPtId[l1] == globalId
           and Muon_highPtId[l2] == globalId ) {
        if ( abs(lep1.Eta()) > etaLimit.first and
             abs(lep1.Eta()) <= etaLimit.second ) {
-         HMassZPt_B_GG->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+         HMassZPt_B_GG->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genW);
        } else {
-         HMassZPt_A_GG->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+         HMassZPt_A_GG->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genW);
        }
      } else {
        if ( abs(lep1.Eta()) > etaLimit.first and
             abs(lep1.Eta()) <= etaLimit.second ) {
-         HMassZPt_B_GT->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+         HMassZPt_B_GT->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genW);
        } else {
-         HMassZPt_A_GT->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genWeight);
+         HMassZPt_A_GT->Fill(lep1.Pt(),lep2.Pt(),zb.M(), genW);
        }
      }
 
    };
 
-   auto FillHistosDP = [&](TH1* A, TH1* B, TH1* C){
+   auto FillHistosDP = [&](TH2F* A, TH2F* B, TH2F* C){
 
      std::pair<float,float> etaLimits = { 1.2, 1.6 };
+     const int globalId = 2;
 
-     TH1* theOne;
+     TH2F* theOne;
 
-     if ( abs(lep1.Eta()) < etaLimits.first
-          and abs(lep2.Eta()) < etaLimits.first ){
-       theOne = A;
-     } else if ( abs(lep1.Eta()) > etaLimits.first
-                 and abs(lep2.Eta()) < etaLimits.second ){
-       theOne = B;
-     } else if ( abs(lep1.Eta()) > etaLimits.second ){
-       theOne = C;
+     if ( Muon_highPtId[l1] == globalId
+          and Muon_highPtId[l2] == globalId) {
+       if ( abs(lep1.Eta()) < etaLimits.first
+            and abs(lep2.Eta()) < etaLimits.first){
+         theOne = A;
+       } else if ( abs(lep1.Eta()) > etaLimits.first
+                   and abs(lep2.Eta()) < etaLimits.second ){
+         theOne = B;
+       } else if ( abs(lep1.Eta()) > etaLimits.second ){
+         theOne = C;
+       }
+       theOne->Fill(lep1.Pt(),zb.M(),genW);
+       theOne->Fill(lep2.Pt(),zb.M(),genW);
      }
-
-     theOne->Fill(lep1.Pt(),zb.M(),genWeight);
-
    };
 
 

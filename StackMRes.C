@@ -1,5 +1,5 @@
 #include "RooTFnBinding.h"
-#include "RooDoubleCB.cc"
+#include "RooCrystalBall.cxx"
 
 using namespace RooFit ;
 
@@ -124,11 +124,11 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   const float ptLimitLowStats_tracker = 140.;
 
   Double_t prevMean = 0.;
-  Double_t prevWidth = 2.;
-  Double_t prevAlpha1 = 1.;
-  Double_t prevAlpha2 = 1.;
-  Double_t prevn1 = 100.;
-  Double_t prevn2 = 100.;
+  Double_t prevSigma = 2.;
+  Double_t prevAlphaL = 1.;
+  Double_t prevAlphaR = 1.;
+  Double_t prevNL = 100.;
+  Double_t prevNR = 100.;
 
   for(int k = 1; k <= nBins; ++k){
 
@@ -182,14 +182,14 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     RooBreitWigner *breitW = new RooBreitWigner("breitW","Fit PDF",*mass,*massZdpg,*widthZdpg);
 
     RooRealVar* dcbMean  = new RooRealVar("dcbMean","dcbMean",prevMean, -1., 1.);
-    RooRealVar* dcbWidth = new RooRealVar("dcbWidth","dcbWidth",prevWidth, 0., 4.);
-    RooRealVar* dcbA1 = new RooRealVar("dcbA1","dcbA1",prevAlpha1, -1e3, 1e3);
-    RooRealVar* dcbA2 = new RooRealVar("dcbA2","dcbA2",prevAlpha2, -1e3, 1e3);
-    RooRealVar* dcbn1 = new RooRealVar("dcbn1","dcbn1",prevn1, 0, 1.5e3);
-    RooRealVar* dcbn2 = new RooRealVar("dcbn2","dcbn2",prevn2, 0, 1.5e3);
-
-    RooDoubleCB* dcb = new RooDoubleCB("dcb","dcb",*mass,*dcbMean, *dcbWidth,
-                                       *dcbA1, *dcbn1, *dcbA2, *dcbn2);
+    RooRealVar* dcbSigma = new RooRealVar("dcbSigma","dcbSigma",prevSigma, 1., 4.);
+    RooRealVar* dcbAlphaL = new RooRealVar("dcbAlphaL","dcbAlphaL",prevAlphaL, -1e3, 1e3);
+    RooRealVar* dcbNL = new RooRealVar("dcbNL","dcbNL",prevNL, 0, h->GetMaximum());
+    RooRealVar* dcbAlphaR = new RooRealVar("dcbAlphaR","dcbAlphaR",prevAlphaR, -1e3, 1e3);
+    RooRealVar* dcbNR = new RooRealVar("dcbNR","dcbNR",prevNR, 0, h->GetMaximum());
+    RooCrystalBall* dcb = new RooCrystalBall("dcb","dcb",*mass,*dcbMean,*dcbSigma,
+                                          *dcbAlphaL, *dcbNL,
+                                          *dcbAlphaR, *dcbNR);
 
     RooDataHist dh1("dh1","dh1",*mass,h);
 
@@ -198,29 +198,27 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     bwdcb->setBufferFraction(0);
     RooFitResult* fit = bwdcb->fitTo(dh1,Range(75.,105.),Save(true),PrintLevel(-1));
 
-    std::cout << "\n\n\n\n\n\n\n\n\n";
-    fit->Print("v");
-    dcb->Print();
     double sigmaConv =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbWidth"))->getVal();
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbSigma"))->getVal();
     double sigmaErrorConv =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbWidth"))->getError();
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbSigma"))->getError();
 
     prevMean =
       static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbMean"))->getVal();
-    prevWidth =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbWidth"))->getVal();
-    prevAlpha1 =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbA1"))->getVal();
-    prevAlpha2 =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbA2"))->getVal();
-    prevn1 =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbn1"))->getVal();
-    prevn1 =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbn1"))->getVal();
+    prevSigma =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbSigma"))->getVal();
+    prevAlphaL =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbAlphaL"))->getVal();
+    prevAlphaR =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbAlphaR"))->getVal();
+    prevNL =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbNL"))->getVal();
+    prevNR =
+      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbNR"))->getVal();
 
-    std::cout << Form("\n\n\tSigma:%.4f\tError:%.4f\n\n",sigmaConv,sigmaErrorConv);
-    std::cout << "\n\n\n\n\n\n\n\n\n";
+    std::cout << Form("\n\n\t%s\n\tSigma:%.4f\tError:%.4f\n\n",hname.c_str(),sigmaConv,sigmaErrorConv);
+    std::cout << Form("\tMean:%.4f\tAlphaL:%.4f\tAlphaR:%.4f\tNL:%.4f\tNR:%.4f\n\n",
+                      prevMean,prevAlphaL,prevAlphaR,prevNL,prevNR);
 
     std::string title = Form("%s [%.0f:%.0f] MC [%d];Pt [GeV] #sigma=%.4f;Event Count",
                              hname.c_str(),ptBinLow, ptBinHigh,year,sigmaConv);
@@ -231,7 +229,6 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     RooPlot* frame = mass->frame(Title(title.c_str()));
 
     dh1.plotOn(frame);
-
 
     bwdcb->plotOn(frame,LineColor(kYellow));
 
@@ -346,7 +343,8 @@ int StackMRes(){
     { "HMassZPt_A_G", "HMassZPt_B_G",
       "HMassZPt_A_T","HMassZPt_B_T",
       "HMassZPt_A_GG_L1","HMassZPt_B_GG_L1",
-      "HMassZPt_A_GT_L1","HMassZPt_B_GT_L1" };
+      "HMassZPt_A_GT_L1","HMassZPt_B_GT_L1",
+      "HDPMassZ_A", "HDPMassZ_B", "HDPMassZ_C"};
 
   std::unordered_map<std::string,std::string> hTitles = {
     { "HMassZPt_A_G", "Z Peak Resolution [globalHighPt] [ 0. < |#eta| < 1.2 ]" },
@@ -357,11 +355,14 @@ int StackMRes(){
     { "HMassZPt_B_GG_L1", "Z Peak Resolution [global + global] [ 1.2 < |#eta| < 2.4 ]"},
     { "HMassZPt_A_GT_L1", "Z Peak Resolution [global + tracker] [ 0. < |#eta| < 1.2 ]"},
     { "HMassZPt_B_GT_L1", "Z Peak Resolution [global + tracker] [ 1.2 < |#eta| < 2.4 ]"},
+    { "HDPMassZ_A", "Both Muons |#eta|<1.2;Leading #mu P_{T} (GeV);#sigma_{#mu#mu} at Z peak (GeV)"},
+    { "HDPMassZ_B", "Leading Muon 1.2<|#eta|<1.6;Leading #mu P_{T} (GeV);#sigma_{#mu#mu} at Z peak (GeV)"},
+    { "HDPMassZ_C", "Leading Muon |#eta|>1.6;Leading #mu P_{T} (GeV);#sigma_{#mu#mu} at Z peak (GeV)"}
   };
 
 
-  TCanvas* cp1 = new TCanvas("cp1","cp1", 4*500, 2*500);
-  cp1->Divide(4,2);
+  TCanvas* cp1 = new TCanvas("cp1","cp1", 4*500, 3*500);
+  cp1->Divide(4,3);
 
   std::vector<Int_t> years = {2016,2017,2018};
 
