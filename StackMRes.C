@@ -406,10 +406,10 @@ int StackMRes(){
       mg->Draw("AP");
       mg->GetYaxis()->SetRangeUser(0.,6.);
 
-      TLegend *l = new TLegend();
+      TLegend *l = new TLegend(0.6,0.7,0.9,0.9);
       l->SetName(Form("%d",year));
       l->AddEntry(gmc,"MC");
-      l->AddEntry(gdata,"Data");
+      l->AddEntry(gdata,Form("%d Data",year));
       l->Draw();
 
       auto subPad = new TPad(Form("subPad_%s",hname.c_str()),"subPad",0.,0.,1.,0.25);
@@ -431,6 +431,7 @@ int StackMRes(){
       gRatio->GetYaxis()->SetTitleOffset(4.0);
       gRatio->GetYaxis()->SetNdivisions(6,3,0);
       gRatio->GetYaxis()->SetTitle("Data/MC");
+      gRatio->GetXaxis()->SetTitle("Leading Muon Pt [GeV]");
       gRatio->GetYaxis()->SetTitleFont(font);
       gRatio->GetYaxis()->SetTitleSize(fontSize);
       gRatio->GetYaxis()->SetLabelSize(labelSize);
