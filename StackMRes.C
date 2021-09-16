@@ -196,7 +196,9 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     RooFFTConvPdf* bwdcb = new RooFFTConvPdf("bwdcb","BreitWigner DCB",
                                              *mass, *dcb, *breitW);
     bwdcb->setBufferFraction(0);
-    RooFitResult* fit = bwdcb->fitTo(dh1,Range(75.,105.),Save(true),PrintLevel(-1));
+    RooFitResult* fit = bwdcb->fitTo(dh1,Range(75.,105.),
+				     Save(true),PrintLevel(-1),
+				     SumW2Error(false),Minos(false));
 
     double sigmaConv =
       static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbSigma"))->getVal();
