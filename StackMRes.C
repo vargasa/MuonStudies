@@ -124,11 +124,11 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
   const float ptLimitLowStats_tracker = 140.;
 
   Double_t prevMean = 0.;
-  Double_t prevSigma = 2.;
-  Double_t prevAlphaL = 1.;
-  Double_t prevAlphaR = 1.;
-  Double_t prevNL = 100.;
-  Double_t prevNR = 100.;
+  Double_t prevSigma = 1.5;
+  Double_t prevAlphaL = 2.;
+  Double_t prevAlphaR = 2.;
+  Double_t prevNL = 1.5;
+  Double_t prevNR = 1.5;
 
   for(int k = 1; k <= nBins; ++k){
 
@@ -172,21 +172,23 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     if (k == 1)
       YLimit = h->GetMaximum()*1.1;
 
-    std::pair<float,float> MassWindow = {-150., 150.};
+    //std::pair<float,float> MassWindow = {-150., 150.};
 
-    RooRealVar *mass = new RooRealVar("mass","m_{Z} (GeV)",MassWindow.first,MassWindow.second);
-    mass->setBins(10000,"cache");
+    RooRealVar *mass = new RooRealVar("mass","m_{Z} (GeV)",-100.,250.);
+    mass->setBins(2000,"cache");
 
     RooRealVar *massZdpg = new RooRealVar("massZdpg","DPG Mass Z", 91.1855, 91.1897);
     RooRealVar *widthZdpg =  new RooRealVar("widthZdpg","DPG Width Z", 2.4929, 2.4975);
     RooBreitWigner *breitW = new RooBreitWigner("breitW","Fit PDF",*mass,*massZdpg,*widthZdpg);
 
-    RooRealVar* dcbMean  = new RooRealVar("dcbMean","dcbMean",prevMean, -1., 1.);
-    RooRealVar* dcbSigma = new RooRealVar("dcbSigma","dcbSigma",prevSigma, 1., 4.);
-    RooRealVar* dcbAlphaL = new RooRealVar("dcbAlphaL","dcbAlphaL",prevAlphaL, -1e3, 1e3);
-    RooRealVar* dcbNL = new RooRealVar("dcbNL","dcbNL",prevNL, 0, h->GetMaximum());
-    RooRealVar* dcbAlphaR = new RooRealVar("dcbAlphaR","dcbAlphaR",prevAlphaR, -1e3, 1e3);
-    RooRealVar* dcbNR = new RooRealVar("dcbNR","dcbNR",prevNR, 0, h->GetMaximum());
+    double zero = 1e-3;
+
+    RooRealVar* dcbMean  = new RooRealVar("dcbMean","dcbMean",prevMean, -1.5, 1.5);
+    RooRealVar* dcbSigma = new RooRealVar("dcbSigma","dcbSigma",prevSigma, 1.1, 10.);
+    RooRealVar* dcbAlphaL = new RooRealVar("dcbAlphaL","dcbAlphaL",prevAlphaL, zero, 25.);
+    RooRealVar* dcbNL = new RooRealVar("dcbNL","dcbNL",prevNL, zero, 25.);
+    RooRealVar* dcbAlphaR = new RooRealVar("dcbAlphaR","dcbAlphaR",prevAlphaR, zero, 25.);
+    RooRealVar* dcbNR = new RooRealVar("dcbNR","dcbNR",prevNR, zero, 25.);
     RooCrystalBall* dcb = new RooCrystalBall("dcb","dcb",*mass,*dcbMean,*dcbSigma,
                                           *dcbAlphaL, *dcbNL,
                                           *dcbAlphaR, *dcbNR);
@@ -200,8 +202,6 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 				     Save(true),PrintLevel(-1),
 				     SumW2Error(false),Minos(false));
 
-    double sigmaConv =
-      static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbSigma"))->getVal();
     double sigmaErrorConv =
       static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbSigma"))->getError();
 
@@ -218,15 +218,19 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
     prevNR =
       static_cast<RooRealVar*>(fit->floatParsFinal().find("dcbNR"))->getVal();
 
-    std::cout << Form("\n\n\t%s\n\tSigma:%.4f\tError:%.4f\n\n",hname.c_str(),sigmaConv,sigmaErrorConv);
+    std::cout << Form("\n\n\t%s\n\tSigma:%.4f\tError:%.4f\n\n",hname.c_str(),prevSigma,sigmaErrorConv);
     std::cout << Form("\tMean:%.4f\tAlphaL:%.4f\tAlphaR:%.4f\tNL:%.4f\tNR:%.4f\n\n",
                       prevMean,prevAlphaL,prevAlphaR,prevNL,prevNR);
 
-    std::string title = Form("%s [%.0f:%.0f] MC [%d];Pt [GeV] #sigma=%.4f;Event Count",
-                             hname.c_str(),ptBinLow, ptBinHigh,year,sigmaConv);
+    std::string parLabel
+      = Form("#sigma=%.3f|#mu=%.3f|#alpha_{L}=%.3f|#alpha_{R}=%.3f|N_{L}=%.3f|N_{R}=%.3f",
+	     prevSigma,prevMean,prevAlphaL,prevAlphaR,prevNL,prevNR);
+
+    std::string title = Form("%s [%.0f:%.0f] MC [%d];#splitline{Pt [GeV]}{%s};Event Count",
+                             hname.c_str(),ptBinLow, ptBinHigh,year,parLabel.c_str());
     if(isData)
-      title = Form("%s [%.0f:%.0f] Data [%d];Pt [GeV] #sigma=%.4f;Event Count",
-                   hname.c_str(),ptBinLow, ptBinHigh,year,sigmaConv);
+      title = Form("%s [%.0f:%.0f] Data [%d];#splitline{Pt [GeV] }{%s};Event Count",
+                   hname.c_str(),ptBinLow, ptBinHigh,year,parLabel.c_str());
 
     RooPlot* frame = mass->frame(Title(title.c_str()));
 
@@ -234,7 +238,7 @@ TGraphAsymmErrors* plotFits(Int_t year, std::string hname, Bool_t isData = false
 
     bwdcb->plotOn(frame,LineColor(kYellow));
 
-    sigmas.emplace_back(sigmaConv);
+    sigmas.emplace_back(prevSigma);
     sigmaErrors.emplace_back(sigmaErrorConv);
 
     RooPlot* framePull = mass->frame(Title(Form("Pull %s",title.c_str())));
