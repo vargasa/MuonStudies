@@ -32,6 +32,9 @@ ZPeakResolution::ZPeakResolution(TTree *)
   HMuonPtl2 = 0;
 
   HMassZ = 0;
+
+  HIp3dl1 = 0;
+  HIp3dl2 = 0;
 }
 
 void ZPeakResolution::Begin(TTree *tree) {
@@ -153,6 +156,12 @@ void ZPeakResolution::SlaveBegin(TTree *tree) {
   HMassZPt_B_GT = new TH3F("HMassZPt_B_GT","", 7, PtBins_MRes, 7, PtBins_MRes, 18, ZMassBins);
   fOutput->Add(HMassZPt_B_GT);
 
+  HIp3dl1 = new TH1F("HIp3dl1","",400,-0.2,0.2);
+  fOutput->Add(HIp3dl1);
+
+  HIp3dl2 = static_cast<TH1F*>(HIp3dl1->Clone());
+  HIp3dl2->SetName("HIp3dl2");
+  fOutput->Add(HIp3dl2);
 }
 
 void ZPeakResolution::SortByDescPt(std::vector<UInt_t>& GoodIdx, const Leptons& l){
@@ -183,10 +192,10 @@ std::vector<UInt_t> ZPeakResolution::GetGoodMuon(const Muons& Mu){
   GoodIndex.reserve(10);
   const int MuonPdgId = 13;
   for (UInt_t i=0; i<*Mu.n;++i){
-    if( Muon_highPtId[i] >=1 and
+    if( Muon_highPurity[i] and Muon_highPtId[i] >=1 and
         abs(Mu.eta[i]) < MaxEta and
         Mu.pt[i] > MinPt and
-        Muon_tkRelIso[i] < 0.1
+        Muon_tkRelIso[i] < 5e-2
 #ifndef CMSDATA
         and abs(Mu.pdgId[i]) == MuonPdgId
 #endif
@@ -445,6 +454,9 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
      hl1->Fill(lep1.Pt(), zb.M(), genW);
      hl2->Fill(lep2.Pt(), zb.M(), genW);
 
+     HIp3dl1->Fill(Muon_ip3d[l1]);
+     HIp3dl2->Fill(Muon_ip3d[l2]);
+
      if ( Muon_highPtId[l1] == globalId
           and Muon_highPtId[l2] == globalId ) {
        if ( abs(lep1.Eta()) > etaLimit.first and
@@ -510,7 +522,7 @@ void ZPeakResolution::Terminate() {
   const Int_t Year_ = 2018;
 #endif
 
-  std::unique_ptr<TFile> fOut(TFile::Open("MuonStudies_ZPeakResolution.root","UPDATE"));
+  std::unique_ptr<TFile> fOut(TFile::Open("MuonStudies_ZPeakResolution_TightenCuts.root","UPDATE"));
   fOut->mkdir(Form("%d",Year_));
   fOut->mkdir(Form("%d/%s",Year_,SampleName.Data()));
   fOut->cd(Form("%d/%s",Year_,SampleName.Data()));

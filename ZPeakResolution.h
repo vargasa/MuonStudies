@@ -74,6 +74,7 @@ class ZPeakResolution : public EventSelection {
   TTreeReaderArray<Float_t> Muon_tkRelIso = {fReader, "Muon_tkRelIso"};
   TTreeReaderArray<Float_t> Muon_ip3d = {fReader, "Muon_ip3d"};
   TTreeReaderArray<Float_t> Muon_sip3d = {fReader, "Muon_sip3d"};
+  TTreeReaderArray<Bool_t> Muon_highPurity = {fReader, "Muon_highPurity"};
 
   // Electrons
   // https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/python/electrons_cff.py
@@ -147,6 +148,8 @@ class ZPeakResolution : public EventSelection {
   Int_t leadElIdx;
   Float_t lt; // Sum of leptons Pt
 
+  TH1F* HIp3dl1;
+  TH1F* HIp3dl2;
 
   std::vector<UInt_t> GoodMuon;
   PtEtaPhiMVector lep1, lep2, zb;
