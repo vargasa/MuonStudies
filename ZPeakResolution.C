@@ -162,6 +162,15 @@ void ZPeakResolution::SlaveBegin(TTree *tree) {
   HIp3dl2 = static_cast<TH1F*>(HIp3dl1->Clone());
   HIp3dl2->SetName("HIp3dl2");
   fOutput->Add(HIp3dl2);
+
+  HMuonPt = new TH2F("HMuonPt","HMuonPt", 90., 0., 450., 90., 0., 450.);
+  fOutput->Add(HMuonPt);
+
+  HMuonEta = new TH2F("HMuonEta","HMuonEta", 24, -2.4, 2.4, 24, -2.4, 2.4);
+  fOutput->Add(HMuonEta);
+
+  HMuonPhi = new TH2F("HMuonPhi","HMuonPhi", 32, -3.15, 3.15, 32, -3.15, 3.15);
+  fOutput->Add(HMuonPhi);
 }
 
 void ZPeakResolution::SortByDescPt(std::vector<UInt_t>& GoodIdx, const Leptons& l){
@@ -507,6 +516,10 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
                   HMassZPt_A_T, HMassZPt_B_T);
 
      FillHistosDP(HDPMassZ_A,HDPMassZ_B,HDPMassZ_C);
+
+     HMuonPt->Fill(lep1.Pt(),lep2.Pt());
+     HMuonEta->Fill(lep1.Eta(),lep2.Pt());
+     HMuonPhi->Fill(lep1.Phi(),lep2.Phi());
    }
 
    return kTRUE;
@@ -522,7 +535,7 @@ void ZPeakResolution::Terminate() {
   const Int_t Year_ = 2018;
 #endif
 
-  std::unique_ptr<TFile> fOut(TFile::Open("MuonStudies_ZPeakResolution_TightenCuts.root","UPDATE"));
+  std::unique_ptr<TFile> fOut(TFile::Open("MuonStudies_ZPeakResolution_MoreHistos.root","UPDATE"));
   fOut->mkdir(Form("%d",Year_));
   fOut->mkdir(Form("%d/%s",Year_,SampleName.Data()));
   fOut->cd(Form("%d/%s",Year_,SampleName.Data()));

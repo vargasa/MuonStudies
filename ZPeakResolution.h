@@ -135,6 +135,10 @@ class ZPeakResolution : public EventSelection {
   TH3F* HMassZPt_A_GT;
   TH3F* HMassZPt_B_GT;
 
+  TH2F* HMuonPt;
+  TH2F* HMuonEta;
+  TH2F* HMuonPhi;
+
   // THs
   std::vector<TH1F*> HnMu;
   TH1F* HMassZ;
