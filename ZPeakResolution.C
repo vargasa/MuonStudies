@@ -427,6 +427,12 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
    HCutFlow->FillS("ZCandidate");
 
+   auto printEventInfo = [&](std::string histoName){
+     std::cout << Form("%s\tRun: %u\tEvent: %llu\tLumiblock: %u\tmll: %.4f\n",
+                       histoName.c_str(), *run, *event, *luminosityBlock, zb.M());
+
+   };
+
    auto FillHistos53 = [&](TH2F* A_G, TH2F* B_G,
                            TH2F* A_T, TH2F* B_T) {
      TH2F *hl1, *hl2 = NULL;
@@ -462,6 +468,11 @@ Bool_t ZPeakResolution::Process(Long64_t entry) {
 
      hl1->Fill(lep1.Pt(), zb.M(), genW);
      hl2->Fill(lep2.Pt(), zb.M(), genW);
+
+#ifdef CMSDATA
+     if(lep1.Pt() > 300. and lep1.Pt() < 450.)
+       printEventInfo(hl1->GetName());
+#endif
 
      HIp3dl1->Fill(Muon_ip3d[l1]);
      HIp3dl2->Fill(Muon_ip3d[l2]);
